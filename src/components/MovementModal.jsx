@@ -68,7 +68,7 @@ export default function MovementModal({ onSave, onClose, movement }) {
 
     return (
         <div className="modal-overlay">
-            <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal" onClick={(e) => e.stopPropagation()} style={{ marginTop: '5vh', alignSelf: 'flex-start' }}>
                 <div className="modal-header">
                     <h3>{isEdit ? 'Editar Movimentação' : 'Nova Movimentação'}</h3>
                     <button className="btn-icon" onClick={onClose}>✕</button>

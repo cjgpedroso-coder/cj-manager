@@ -17,7 +17,7 @@ export default function ProducaoEstoquePage() {
 
     // Filters
     const [filterMaterial, setFilterMaterial] = useState('');
-    const [filterDate, setFilterDate] = useState(new Date().toISOString().slice(0, 10));
+    const [filterDate, setFilterDate] = useState('');
 
     // Modal form
     const today = new Date().toISOString().slice(0, 10);

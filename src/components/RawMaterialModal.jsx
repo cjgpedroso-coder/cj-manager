@@ -333,21 +333,8 @@ export default function RawMaterialModal({ material, onSave, onClose }) {
                             )}
                         </div>
 
-                        {/* Estoque Inicial + Estoque Mínimo */}
+                        {/* Estoque Mínimo */}
                         <div className="form-row">
-                            <div className="form-group">
-                                <label>Estoque Atual</label>
-                                <input
-                                    className={`form-input ${errors.currentStock ? 'error' : ''}`}
-                                    name="currentStock"
-                                    value={form.currentStock}
-                                    onChange={handleChange}
-                                    placeholder="0"
-                                    type="number"
-                                    min="0"
-                                />
-                                {errors.currentStock && <span style={{ color: 'var(--accent-danger)', fontSize: '12px' }}>{errors.currentStock}</span>}
-                            </div>
                             <div className="form-group">
                                 <label>Estoque Mínimo</label>
                                 <input

@@ -70,6 +70,16 @@ const PedidosIcon = () => (
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
     </svg>
 );
+const DevIcon = () => (
+    <svg className="nav-svg-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+    </svg>
+);
+const DatabaseIcon = () => (
+    <svg className="nav-svg-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
+    </svg>
+);
 const ChevronIcon = ({ open }) => (
     <svg
         className="nav-svg-icon cj-chevron"
@@ -85,6 +95,7 @@ export default function Layout() {
     const [geradorOpen, setGeradorOpen] = useState(false);
     const [estoqueOpen, setEstoqueOpen] = useState(false);
     const [logisticoOpen, setLogisticoOpen] = useState(false);
+    const [devOpen, setDevOpen] = useState(false);
     const [animateItems, setAnimateItems] = useState(false);
     const { session, isAdmin, logout } = useAuth();
     const [pendingUsers, setPendingUsers] = useState([]);
@@ -101,14 +112,18 @@ export default function Layout() {
     const canGerador = role === 'DEV' || role === 'administrador';
     const canEstoque = role === 'DEV' || role === 'estoque';
     const canLogistico = role === 'DEV' || role === 'logistico';
+    const canDev = role === 'DEV';
 
     // Auto-expand modules if on a child route
     useEffect(() => {
-        if (location.pathname.startsWith('/produtos') || location.pathname.startsWith('/movimentacoes') || location.pathname.startsWith('/producao-estoque')) {
+        if (location.pathname.startsWith('/produtos') || location.pathname.startsWith('/movimentacoes') || location.pathname.startsWith('/producao-estoque') || location.pathname.startsWith('/resumo')) {
             setEstoqueOpen(true);
         }
         if (location.pathname.startsWith('/romaneio') || location.pathname.startsWith('/pedidos')) {
             setLogisticoOpen(true);
+        }
+        if (location.pathname.startsWith('/dev/')) {
+            setDevOpen(true);
         }
     }, [location.pathname]);
 
@@ -146,6 +161,7 @@ export default function Layout() {
         if (location.pathname === '/') return 'Início';
         if (location.pathname.startsWith('/regras-tributarias')) return 'Regras Tributárias';
         if (location.pathname.startsWith('/producao-estoque')) return 'Produção';
+        if (location.pathname.startsWith('/resumo')) return 'Resumo';
         if (location.pathname.startsWith('/producao')) return 'Produção';
         if (location.pathname.startsWith('/preco')) return 'Preço';
         if (location.pathname.startsWith('/tabelas-precos')) return 'Tabelas de Preço';
@@ -154,6 +170,7 @@ export default function Layout() {
         if (location.pathname.startsWith('/romaneio')) return 'Romaneio';
         if (location.pathname.startsWith('/pedidos')) return 'Pedidos';
         if (location.pathname.startsWith('/admin/usuarios')) return 'Usuários';
+        if (location.pathname.startsWith('/dev/database')) return 'Banco de Dados';
         return 'Creme Jundiaí Manager';
     }
 
@@ -355,6 +372,15 @@ export default function Layout() {
                                         <span className="cj-menu-icon"><ProducaoIcon /></span>
                                         <span className="cj-menu-label">Produção</span>
                                     </NavLink>
+                                    <NavLink
+                                        to="/resumo"
+                                        onClick={() => setSidebarOpen(false)}
+                                        className="cj-menu-item cj-submenu-item"
+                                        style={estoqueOpen ? { opacity: 1 } : { opacity: 0, animation: 'none' }}
+                                    >
+                                        <span className="cj-menu-icon"><TabelasPrecosIcon /></span>
+                                        <span className="cj-menu-label">Resumo</span>
+                                    </NavLink>
                                 </div>
                             </>
                         )}
@@ -390,6 +416,33 @@ export default function Layout() {
                                     >
                                         <span className="cj-menu-icon"><PedidosIcon /></span>
                                         <span className="cj-menu-label">Pedidos</span>
+                                    </NavLink>
+                                </div>
+                            </>
+                        )}
+
+                        {/* Desenvolvedor (collapsible, DEV only) */}
+                        {canDev && (
+                            <>
+                                <button
+                                    className={`cj-menu-item cj-menu-parent ${devOpen ? 'expanded' : ''}`}
+                                    onClick={() => setDevOpen(!devOpen)}
+                                    style={nextAnim()}
+                                >
+                                    <span className="cj-menu-icon"><DevIcon /></span>
+                                    <span className="cj-menu-label">Desenvolvedor</span>
+                                    <ChevronIcon open={devOpen} />
+                                </button>
+
+                                <div className={`cj-submenu ${devOpen ? 'open' : ''}`}>
+                                    <NavLink
+                                        to="/dev/database"
+                                        onClick={() => setSidebarOpen(false)}
+                                        className="cj-menu-item cj-submenu-item"
+                                        style={devOpen ? { opacity: 1 } : { opacity: 0, animation: 'none' }}
+                                    >
+                                        <span className="cj-menu-icon"><DatabaseIcon /></span>
+                                        <span className="cj-menu-label">Banco de Dados</span>
                                     </NavLink>
                                 </div>
                             </>

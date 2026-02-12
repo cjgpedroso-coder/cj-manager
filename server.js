@@ -235,7 +235,7 @@ app.get('/api/users/:id/role', (req, res) => {
 // ── Products ─────────────────────────────────────────────────
 
 app.get('/api/products', (req, res) => {
-    const products = db.prepare('SELECT * FROM products').all();
+    const products = db.prepare('SELECT * FROM products ORDER BY name').all();
     res.json(products);
 });
 
@@ -409,7 +409,7 @@ app.delete('/api/gramaturas/:name', (req, res) => {
 // ── Raw Materials ─────────────────────────────────────────────
 
 app.get('/api/raw-materials', (req, res) => {
-    const items = db.prepare('SELECT * FROM raw_materials').all();
+    const items = db.prepare('SELECT * FROM raw_materials ORDER BY name').all();
     res.json(items);
 });
 
@@ -509,6 +509,80 @@ app.delete('/api/raw-material-movements/:id', (req, res) => {
         }
         db.prepare('DELETE FROM raw_material_movements WHERE id = ?').run(req.params.id);
     }
+    res.json({ success: true });
+});
+
+// ── Developer Database Routes ────────────────────────────────
+
+// List all tables
+app.get('/api/dev/tables', (req, res) => {
+    const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").all();
+    const result = tables.map((t) => {
+        const count = db.prepare(`SELECT COUNT(*) as count FROM "${t.name}"`).get();
+        return { name: t.name, rowCount: count.count };
+    });
+    res.json(result);
+});
+
+// Get table schema + all rows
+app.get('/api/dev/tables/:name', (req, res) => {
+    const tableName = req.params.name;
+    // Validate table exists
+    const exists = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name = ?").get(tableName);
+    if (!exists) return res.status(404).json({ error: 'Table not found' });
+
+    const columns = db.prepare(`PRAGMA table_info("${tableName}")`).all();
+    const rows = db.prepare(`SELECT * FROM "${tableName}" ORDER BY rowid DESC`).all();
+    res.json({ columns, rows });
+});
+
+// Insert row
+app.post('/api/dev/tables/:name', (req, res) => {
+    const tableName = req.params.name;
+    const exists = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name = ?").get(tableName);
+    if (!exists) return res.status(404).json({ error: 'Table not found' });
+
+    const data = req.body;
+    const keys = Object.keys(data);
+    if (keys.length === 0) return res.status(400).json({ error: 'No data provided' });
+
+    const placeholders = keys.map(() => '?').join(', ');
+    const sql = `INSERT INTO "${tableName}" (${keys.map(k => `"${k}"`).join(', ')}) VALUES (${placeholders})`;
+    db.prepare(sql).run(...keys.map(k => data[k]));
+    res.json({ success: true });
+});
+
+// Update row (by primary key or rowid)
+app.put('/api/dev/tables/:name/:id', (req, res) => {
+    const tableName = req.params.name;
+    const exists = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name = ?").get(tableName);
+    if (!exists) return res.status(404).json({ error: 'Table not found' });
+
+    const columns = db.prepare(`PRAGMA table_info("${tableName}")`).all();
+    const pkCol = columns.find(c => c.pk === 1);
+    const pkName = pkCol ? pkCol.name : 'rowid';
+
+    const data = req.body;
+    const keys = Object.keys(data).filter(k => k !== pkName);
+    if (keys.length === 0) return res.status(400).json({ error: 'No data to update' });
+
+    const setClause = keys.map(k => `"${k}" = ?`).join(', ');
+    const sql = `UPDATE "${tableName}" SET ${setClause} WHERE "${pkName}" = ?`;
+    db.prepare(sql).run(...keys.map(k => data[k]), req.params.id);
+    res.json({ success: true });
+});
+
+// Delete row
+app.delete('/api/dev/tables/:name/:id', (req, res) => {
+    const tableName = req.params.name;
+    const exists = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name = ?").get(tableName);
+    if (!exists) return res.status(404).json({ error: 'Table not found' });
+
+    const columns = db.prepare(`PRAGMA table_info("${tableName}")`).all();
+    const pkCol = columns.find(c => c.pk === 1);
+    const pkName = pkCol ? pkCol.name : 'rowid';
+
+    db.prepare(`DELETE FROM "${tableName}" WHERE "${pkName}" = ?`).run(req.params.id);
     res.json({ success: true });
 });
 

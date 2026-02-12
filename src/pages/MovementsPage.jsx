@@ -13,7 +13,7 @@ export default function MovementsPage() {
     // Filters
     const [filterType, setFilterType] = useState('');
     const [filterProduct, setFilterProduct] = useState('');
-    const [filterDate, setFilterDate] = useState(new Date().toISOString().slice(0, 10));
+    const [filterDate, setFilterDate] = useState('');
     const [searchVendedor, setSearchVendedor] = useState('');
 
     const refresh = useCallback(async () => {

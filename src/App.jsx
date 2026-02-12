@@ -6,6 +6,7 @@ import DashboardPage from './pages/DashboardPage';
 import ProductsPage from './pages/ProductsPage';
 import MovementsPage from './pages/MovementsPage';
 import ProducaoEstoquePage from './pages/ProducaoEstoquePage';
+import ResumoPage from './pages/ResumoPage';
 import RomaneioPage from './pages/RomaneioPage';
 import PedidosPage from './pages/PedidosPage';
 import RegrasTributariasPage from './pages/RegrasTributariasPage';
@@ -15,6 +16,7 @@ import TabelasPrecosPage from './pages/TabelasPrecosPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import AdminUsersPage from './pages/AdminUsersPage';
+import DatabasePage from './pages/DatabasePage';
 
 function ProtectedRoute({ children }) {
     const { isAuthenticated } = useAuth();
@@ -57,6 +59,7 @@ export default function App() {
                         <Route path="/produtos" element={<RoleRoute roles={['DEV', 'estoque']}><ProductsPage /></RoleRoute>} />
                         <Route path="/movimentacoes" element={<RoleRoute roles={['DEV', 'estoque']}><MovementsPage /></RoleRoute>} />
                         <Route path="/producao-estoque" element={<RoleRoute roles={['DEV', 'estoque']}><ProducaoEstoquePage /></RoleRoute>} />
+                        <Route path="/resumo" element={<RoleRoute roles={['DEV', 'estoque']}><ResumoPage /></RoleRoute>} />
 
                         {/* Logístico — CEO, logistico */}
                         <Route path="/romaneio" element={<RoleRoute roles={['DEV', 'logistico']}><RomaneioPage /></RoleRoute>} />
@@ -64,6 +67,9 @@ export default function App() {
 
                         {/* Admin — CEO */}
                         <Route path="/admin/usuarios" element={<RoleRoute roles={['DEV']}><AdminUsersPage /></RoleRoute>} />
+
+                        {/* Desenvolvedor — DEV only */}
+                        <Route path="/dev/database" element={<RoleRoute roles={['DEV']}><DatabasePage /></RoleRoute>} />
                     </Route>
 
                     {/* Fallback */}

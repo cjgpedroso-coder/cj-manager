@@ -15,7 +15,7 @@ echo  Iniciando backend (SQLite)...
 start "CJ Backend" /MIN cmd /c "cd /d \"%~dp0\" && node server.js"
 
 REM Wait for backend to start
-timeout /t 2 /nobreak >nul
+timeout /t 5 /nobreak >nul
 
 REM Open browser
 echo  Abrindo navegador em http://localhost:5173...

@@ -35,7 +35,7 @@ export default function LoginPage() {
         if (error) setError('');
     }
 
-    function handleSubmit(e) {
+    async function handleSubmit(e) {
         e.preventDefault();
         if (cooldown > 0) return;
         if (!form.username.trim() || !form.password) {
@@ -44,25 +44,25 @@ export default function LoginPage() {
         }
 
         setLoading(true);
-        setTimeout(() => {
-            const result = login(form.username.trim(), form.password);
-            if (result.success) {
-                navigate('/', { replace: true });
-            } else if (result.error === 'pending') {
-                setPendingUser(result.username);
-                setLoading(false);
-            } else if (result.error === 'bloqueado') {
-                setBlockedUser(result.username);
-                setLoading(false);
-            } else if (result.error === 'cooldown') {
-                setCooldown(result.remaining);
-                setError(`Login bloqueado temporariamente`);
-                setLoading(false);
-            } else {
-                setError(result.error);
-                setLoading(false);
-            }
-        }, 400);
+        // Small delay for UX feel
+        await new Promise((r) => setTimeout(r, 400));
+        const result = await login(form.username.trim(), form.password);
+        if (result.success) {
+            navigate('/', { replace: true });
+        } else if (result.error === 'pending') {
+            setPendingUser(result.username);
+            setLoading(false);
+        } else if (result.error === 'bloqueado') {
+            setBlockedUser(result.username);
+            setLoading(false);
+        } else if (result.error === 'cooldown') {
+            setCooldown(result.remaining);
+            setError(`Login bloqueado temporariamente`);
+            setLoading(false);
+        } else {
+            setError(result.error);
+            setLoading(false);
+        }
     }
 
     const isLocked = cooldown > 0;

@@ -10,8 +10,8 @@ const allModules = [
         color: '#059669',
         gradient: 'linear-gradient(135deg, #059669, #10b981)',
         path: '/regras-tributarias',
-        items: ['Regras Tributárias', 'Produção', 'Preço'],
-        roles: ['CEO', 'administrador'],
+        items: ['Regras Tributárias', 'Produção', 'Preço', 'Tabelas de Preço'],
+        roles: ['DEV', 'administrador'],
     },
     {
         id: 'estoque',
@@ -22,7 +22,7 @@ const allModules = [
         gradient: 'linear-gradient(135deg, #2563eb, #3b82f6)',
         path: '/produtos',
         items: ['Produtos', 'Movimentações'],
-        roles: ['CEO', 'estoque'],
+        roles: ['DEV', 'estoque'],
     },
     {
         id: 'logistico',
@@ -33,7 +33,7 @@ const allModules = [
         gradient: 'linear-gradient(135deg, #d97706, #f59e0b)',
         path: '/romaneio',
         items: ['Romaneio', 'Pedidos'],
-        roles: ['CEO', 'logistico'],
+        roles: ['DEV', 'logistico'],
     },
     {
         id: 'usuarios',
@@ -44,7 +44,7 @@ const allModules = [
         gradient: 'linear-gradient(135deg, #7c3aed, #8b5cf6)',
         path: '/admin/usuarios',
         items: ['Gerenciar Usuários', 'Aprovações'],
-        roles: ['CEO'],
+        roles: ['DEV'],
     },
 ];
 

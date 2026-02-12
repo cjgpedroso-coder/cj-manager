@@ -1,17 +1,24 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { getProducts } from '../utils/storage';
 
-export default function MovementModal({ onSave, onClose }) {
-    const [products] = useState(() => getProducts());
+export default function MovementModal({ onSave, onClose, movement }) {
+    const [products, setProducts] = useState([]);
+
+    useEffect(() => {
+        getProducts().then(setProducts);
+    }, []);
 
     const today = new Date().toISOString().slice(0, 10);
+    const isEdit = !!movement;
 
     const [form, setForm] = useState({
-        productId: '',
-        type: 'entrada',
-        quantity: '',
-        date: today,
-        observation: '',
+        date: movement?.date || today,
+        vendedor: movement?.vendedor || '',
+        productId: movement?.productId || '',
+        entrada: movement?.entrada ?? '',
+        saida: movement?.saida ?? '',
+        retorno: movement?.retorno ?? '',
+        trocas: movement?.trocas ?? '',
     });
 
     const [errors, setErrors] = useState({});
@@ -24,18 +31,9 @@ export default function MovementModal({ onSave, onClose }) {
 
     function validate() {
         const newErrors = {};
-        if (!form.productId) newErrors.productId = 'Selecione um produto';
-        if (!form.quantity || Number(form.quantity) <= 0) newErrors.quantity = 'Quantidade inválida';
         if (!form.date) newErrors.date = 'Data é obrigatória';
-
-        // Check for insufficient stock on exit
-        if (form.type === 'saida' && form.productId) {
-            const product = products.find((p) => p.id === form.productId);
-            if (product && Number(form.quantity) > Number(product.currentStock || 0)) {
-                newErrors.quantity = `Estoque insuficiente (disponível: ${product.currentStock || 0})`;
-            }
-        }
-
+        if (!form.vendedor.trim()) newErrors.vendedor = 'Informe o vendedor';
+        if (!form.productId) newErrors.productId = 'Selecione um produto';
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     }
@@ -43,19 +41,60 @@ export default function MovementModal({ onSave, onClose }) {
     function handleSubmit(e) {
         e.preventDefault();
         if (!validate()) return;
-        onSave({ ...form, quantity: Number(form.quantity) });
+        onSave({
+            ...form,
+            entrada: Number(form.entrada) || 0,
+            saida: Number(form.saida) || 0,
+            retorno: Number(form.retorno) || 0,
+            trocas: Number(form.trocas) || 0,
+        });
     }
 
     return (
         <div className="modal-overlay" onClick={onClose}>
             <div className="modal" onClick={(e) => e.stopPropagation()}>
                 <div className="modal-header">
-                    <h3>Nova Movimentação</h3>
+                    <h3>{isEdit ? 'Editar Movimentação' : 'Nova Movimentação'}</h3>
                     <button className="btn-icon" onClick={onClose}>✕</button>
                 </div>
 
                 <form onSubmit={handleSubmit}>
                     <div className="modal-body">
+                        {/* Data */}
+                        <div className="form-group">
+                            <label>Data <span className="required">*</span></label>
+                            <input
+                                className={`form-input ${errors.date ? 'error' : ''}`}
+                                name="date"
+                                value={form.date}
+                                onChange={handleChange}
+                                type="date"
+                            />
+                            {errors.date && (
+                                <span style={{ color: 'var(--accent-danger)', fontSize: '12px' }}>
+                                    {errors.date}
+                                </span>
+                            )}
+                        </div>
+
+                        {/* Vendedor */}
+                        <div className="form-group">
+                            <label>Vendedor <span className="required">*</span></label>
+                            <input
+                                className={`form-input ${errors.vendedor ? 'error' : ''}`}
+                                name="vendedor"
+                                value={form.vendedor}
+                                onChange={handleChange}
+                                placeholder="Nome do vendedor"
+                            />
+                            {errors.vendedor && (
+                                <span style={{ color: 'var(--accent-danger)', fontSize: '12px' }}>
+                                    {errors.vendedor}
+                                </span>
+                            )}
+                        </div>
+
+                        {/* Produto */}
                         <div className="form-group">
                             <label>Produto <span className="required">*</span></label>
                             <select
@@ -67,7 +106,7 @@ export default function MovementModal({ onSave, onClose }) {
                                 <option value="">Selecione um produto...</option>
                                 {products.map((p) => (
                                     <option key={p.id} value={p.id}>
-                                        {p.name} {p.sku ? `(${p.sku})` : ''} — Estoque: {p.currentStock || 0}
+                                        {p.name}{p.embalagem ? ` — ${p.embalagem}` : ''}
                                     </option>
                                 ))}
                             </select>
@@ -78,54 +117,58 @@ export default function MovementModal({ onSave, onClose }) {
                             )}
                         </div>
 
-                        <div className="form-row">
+                        {/* Quantidades por tipo */}
+                        <div className="form-row" style={{ gridTemplateColumns: '1fr 1fr' }}>
                             <div className="form-group">
-                                <label>Tipo <span className="required">*</span></label>
-                                <select className="form-select" name="type" value={form.type} onChange={handleChange}>
-                                    <option value="entrada">Entrada</option>
-                                    <option value="saida">Saida</option>
-                                </select>
-                            </div>
-                            <div className="form-group">
-                                <label>Quantidade <span className="required">*</span></label>
+                                <label>Entrada</label>
                                 <input
-                                    className={`form-input ${errors.quantity ? 'error' : ''}`}
-                                    name="quantity"
-                                    value={form.quantity}
+                                    className="form-input"
+                                    name="entrada"
+                                    value={form.entrada}
                                     onChange={handleChange}
                                     placeholder="0"
                                     type="number"
-                                    min="1"
+                                    min="0"
                                 />
-                                {errors.quantity && (
-                                    <span style={{ color: 'var(--accent-danger)', fontSize: '12px' }}>
-                                        {errors.quantity}
-                                    </span>
-                                )}
+                            </div>
+                            <div className="form-group">
+                                <label>Saída</label>
+                                <input
+                                    className="form-input"
+                                    name="saida"
+                                    value={form.saida}
+                                    onChange={handleChange}
+                                    placeholder="0"
+                                    type="number"
+                                    min="0"
+                                />
                             </div>
                         </div>
-
-                        <div className="form-group">
-                            <label>Data <span className="required">*</span></label>
-                            <input
-                                className={`form-input ${errors.date ? 'error' : ''}`}
-                                name="date"
-                                value={form.date}
-                                onChange={handleChange}
-                                type="date"
-                            />
-                        </div>
-
-                        <div className="form-group">
-                            <label>Observação</label>
-                            <textarea
-                                className="form-textarea"
-                                name="observation"
-                                value={form.observation}
-                                onChange={handleChange}
-                                placeholder="Informações adicionais sobre esta movimentação..."
-                                rows={3}
-                            />
+                        <div className="form-row" style={{ gridTemplateColumns: '1fr 1fr' }}>
+                            <div className="form-group">
+                                <label>Retorno</label>
+                                <input
+                                    className="form-input"
+                                    name="retorno"
+                                    value={form.retorno}
+                                    onChange={handleChange}
+                                    placeholder="0"
+                                    type="number"
+                                    min="0"
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label>Trocas</label>
+                                <input
+                                    className="form-input"
+                                    name="trocas"
+                                    value={form.trocas}
+                                    onChange={handleChange}
+                                    placeholder="0"
+                                    type="number"
+                                    min="0"
+                                />
+                            </div>
                         </div>
                     </div>
 
@@ -134,7 +177,7 @@ export default function MovementModal({ onSave, onClose }) {
                             Cancelar
                         </button>
                         <button type="submit" className="btn btn-primary">
-                            Registrar Movimentação
+                            {isEdit ? 'Salvar Alterações' : 'Registrar Movimentação'}
                         </button>
                     </div>
                 </form>

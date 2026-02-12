@@ -1,23 +1,26 @@
-import { useState, useCallback, useMemo } from 'react';
-import { getMovements, getProducts, saveMovement, deleteMovement } from '../utils/storage';
+import { useState, useCallback, useMemo, useEffect } from 'react';
+import { getMovements, getProducts, saveMovement, deleteMovement, updateMovement } from '../utils/storage';
 import MovementModal from '../components/MovementModal';
 import ConfirmDialog from '../components/ConfirmDialog';
 
 export default function MovementsPage() {
-    const [movements, setMovements] = useState(() => getMovements());
-    const [products, setProducts] = useState(() => getProducts());
+    const [movements, setMovements] = useState([]);
+    const [products, setProducts] = useState([]);
     const [showModal, setShowModal] = useState(false);
+    const [editMovement, setEditMovement] = useState(null);
     const [deleteTarget, setDeleteTarget] = useState(null);
 
     // Filters
     const [filterType, setFilterType] = useState('');
     const [filterProduct, setFilterProduct] = useState('');
-    const [filterDate, setFilterDate] = useState('');
+    const [filterDate, setFilterDate] = useState(new Date().toISOString().slice(0, 10));
 
-    const refresh = useCallback(() => {
-        setMovements(getMovements());
-        setProducts(getProducts());
+    const refresh = useCallback(async () => {
+        setMovements(await getMovements());
+        setProducts(await getProducts());
     }, []);
+
+    useEffect(() => { refresh(); }, [refresh]);
 
     const productMap = useMemo(() => {
         const map = {};
@@ -36,16 +39,26 @@ export default function MovementsPage() {
             .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     }, [movements, filterType, filterProduct, filterDate]);
 
-    function handleSave(data) {
-        saveMovement(data);
-        refresh();
+    async function handleSave(data) {
+        if (editMovement) {
+            await updateMovement(editMovement.id, data);
+            setEditMovement(null);
+        } else {
+            await saveMovement(data);
+        }
+        await refresh();
         setShowModal(false);
     }
 
-    function handleDeleteConfirm() {
+    function handleEdit(m) {
+        setEditMovement(m);
+        setShowModal(true);
+    }
+
+    async function handleDeleteConfirm() {
         if (deleteTarget) {
-            deleteMovement(deleteTarget.id);
-            refresh();
+            await deleteMovement(deleteTarget.id);
+            await refresh();
             setDeleteTarget(null);
         }
     }
@@ -68,19 +81,37 @@ export default function MovementsPage() {
         });
     }
 
-    // Stats
+    // Stats — filtered by date and product (ignore Tipos filter)
     const stats = useMemo(() => {
-        const today = new Date().toISOString().slice(0, 10);
-        const todayMovements = movements.filter((m) => m.date === today);
-        const totalEntradas = movements.filter((m) => m.type === 'entrada').reduce((s, m) => s + Number(m.quantity), 0);
-        const totalSaidas = movements.filter((m) => m.type === 'saida').reduce((s, m) => s + Number(m.quantity), 0);
+        const byDateAndProduct = movements.filter((m) => {
+            if (filterDate && m.date !== filterDate) return false;
+            if (filterProduct && m.productId !== filterProduct) return false;
+            return true;
+        });
+        const totalEntradas = byDateAndProduct.reduce((s, m) => s + (Number(m.entrada) || 0), 0);
+        const totalSaidas = byDateAndProduct.reduce((s, m) => s + (Number(m.saida) || 0), 0);
+        const totalRetorno = byDateAndProduct.reduce((s, m) => s + (Number(m.retorno) || 0), 0);
+        const totalTrocas = byDateAndProduct.reduce((s, m) => s + (Number(m.trocas) || 0), 0);
         return {
-            total: movements.length,
-            today: todayMovements.length,
+            total: byDateAndProduct.length,
             totalEntradas,
             totalSaidas,
+            totalRetorno,
+            totalTrocas,
         };
-    }, [movements]);
+    }, [movements, filterDate, filterProduct]);
+
+    // Saldo Atual — from products, based on product filter
+    const saldoInfo = useMemo(() => {
+        if (filterProduct && productMap[filterProduct]) {
+            return {
+                value: Number(productMap[filterProduct].saldo) || 0,
+                label: productMap[filterProduct].name,
+            };
+        }
+        const total = products.reduce((s, p) => s + (Number(p.saldo) || 0), 0);
+        return { value: total, label: 'Total de produtos' };
+    }, [filterProduct, productMap, products]);
 
     return (
         <div className="page-container">
@@ -93,89 +124,115 @@ export default function MovementsPage() {
                     ＋ Nova Movimentação
                 </button>
             </div>
-
-            {/* Stats */}
-            <div className="stats-grid">
-                <div className="stat-card purple">
-                    <div className="stat-icon purple">M</div>
-                    <div className="stat-info">
-                        <h3>{stats.total}</h3>
-                        <p>Total de movimentações</p>
-                    </div>
-                </div>
-                <div className="stat-card cyan">
-                    <div className="stat-icon cyan">D</div>
-                    <div className="stat-info">
-                        <h3>{stats.today}</h3>
-                        <p>Movimentações hoje</p>
-                    </div>
-                </div>
-                <div className="stat-card green">
-                    <div className="stat-icon green">E</div>
-                    <div className="stat-info">
-                        <h3>{stats.totalEntradas.toLocaleString('pt-BR')}</h3>
-                        <p>Total de entradas</p>
-                    </div>
-                </div>
-                <div className="stat-card red">
-                    <div className="stat-icon red">S</div>
-                    <div className="stat-info">
-                        <h3>{stats.totalSaidas.toLocaleString('pt-BR')}</h3>
-                        <p>Total de saídas</p>
-                    </div>
-                </div>
-            </div>
-
-            {/* Filters */}
-            <div className="filter-bar">
-                <select
-                    className="form-select"
-                    value={filterType}
-                    onChange={(e) => setFilterType(e.target.value)}
-                    style={{ minWidth: '160px' }}
-                >
-                    <option value="">Todos os tipos</option>
-                    <option value="entrada">Entradas</option>
-                    <option value="saida">Saidas</option>
-                </select>
-
-                <select
-                    className="form-select"
-                    value={filterProduct}
-                    onChange={(e) => setFilterProduct(e.target.value)}
-                    style={{ minWidth: '200px' }}
-                >
-                    <option value="">Todos os produtos</option>
-                    {products.map((p) => (
-                        <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                </select>
-
-                <input
-                    className="form-input"
-                    type="date"
-                    value={filterDate}
-                    onChange={(e) => setFilterDate(e.target.value)}
-                    style={{ minWidth: '160px' }}
-                />
-
-                {(filterType || filterProduct || filterDate) && (
-                    <button
-                        className="btn btn-secondary btn-sm"
-                        onClick={() => { setFilterType(''); setFilterProduct(''); setFilterDate(''); }}
+            {/* Filters + Stats Card */}
+            <div className="card" style={{ padding: '20px 24px' }}>
+                {/* Filters */}
+                <div className="filter-bar" style={{ margin: 0, marginBottom: '20px' }}>
+                    <select
+                        className="form-select"
+                        value={filterType}
+                        onChange={(e) => setFilterType(e.target.value)}
+                        style={{ minWidth: '160px' }}
                     >
-                        ✕ Limpar filtros
-                    </button>
-                )}
+                        <option value="">Todos os tipos</option>
+                        <option value="entrada">Entradas</option>
+                        <option value="saida">Saídas</option>
+                        <option value="retorno">Retornos</option>
+                        <option value="trocas">Trocas</option>
+                    </select>
 
-                <span style={{ color: 'var(--text-muted)', fontSize: '13px', marginLeft: 'auto' }}>
-                    {filtered.length} registro{filtered.length !== 1 ? 's' : ''}
-                </span>
+                    <select
+                        className="form-select"
+                        value={filterProduct}
+                        onChange={(e) => setFilterProduct(e.target.value)}
+                        style={{ minWidth: '200px' }}
+                    >
+                        <option value="">Todos os produtos</option>
+                        {products.map((p) => (
+                            <option key={p.id} value={p.id}>{p.name}</option>
+                        ))}
+                    </select>
+
+                    <input
+                        className="form-input"
+                        type="date"
+                        value={filterDate}
+                        onChange={(e) => setFilterDate(e.target.value)}
+                        style={{ minWidth: '160px' }}
+                    />
+
+                    {(filterType || filterProduct || filterDate) && (
+                        <button
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => { setFilterType(''); setFilterProduct(''); setFilterDate(''); }}
+                        >
+                            ✕ Limpar filtros
+                        </button>
+                    )}
+                </div>
+
+                {/* Stats Title */}
+                <h4 style={{ margin: '0 0 16px 0', fontSize: '17px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                    {filterDate
+                        ? new Date(filterDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
+                        : 'Todas as datas'}
+                    {' — '}
+                    {filterProduct && productMap[filterProduct]
+                        ? productMap[filterProduct].name
+                        : 'Todos os produtos'}
+                </h4>
+
+                {/* Stats Grid */}
+                <div className="stats-grid" style={{ margin: 0, gridTemplateColumns: 'repeat(3, 1fr)' }}>
+                    <div className="stat-card cyan">
+                        <div className="stat-icon cyan">M</div>
+                        <div className="stat-info">
+                            <h3>{stats.total}</h3>
+                            <p>Movimentações</p>
+                        </div>
+                    </div>
+                    <div className="stat-card green">
+                        <div className="stat-icon green">E</div>
+                        <div className="stat-info">
+                            <h3>{stats.totalEntradas.toLocaleString('pt-BR')}</h3>
+                            <p>Entrada</p>
+                        </div>
+                    </div>
+                    <div className="stat-card red">
+                        <div className="stat-icon red">S</div>
+                        <div className="stat-info">
+                            <h3>{stats.totalSaidas.toLocaleString('pt-BR')}</h3>
+                            <p>Saída</p>
+                        </div>
+                    </div>
+                    <div className="stat-card green">
+                        <div className="stat-icon green">R</div>
+                        <div className="stat-info">
+                            <h3>{stats.totalRetorno.toLocaleString('pt-BR')}</h3>
+                            <p>Retorno</p>
+                        </div>
+                    </div>
+                    <div className="stat-card red">
+                        <div className="stat-icon red">T</div>
+                        <div className="stat-info">
+                            <h3>{stats.totalTrocas.toLocaleString('pt-BR')}</h3>
+                            <p>Trocas</p>
+                        </div>
+                    </div>
+                    <div className="stat-card cyan">
+                        <div className="stat-icon cyan">$</div>
+                        <div className="stat-info">
+                            <h3>{saldoInfo.value.toLocaleString('pt-BR')}</h3>
+                            <p>Saldo Atual</p>
+                            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{saldoInfo.label}</span>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             {/* Table or Empty */}
             {filtered.length === 0 ? (
-                <div className="card">
+                <div className="card" style={{ marginTop: '12px' }}>
                     <div className="empty-state">
                         <div className="empty-state-icon">--</div>
                         <h4>{movements.length === 0 ? 'Nenhuma movimentação registrada' : 'Nenhum resultado'}</h4>
@@ -187,57 +244,78 @@ export default function MovementsPage() {
                     </div>
                 </div>
             ) : (
-                <div className="table-wrapper">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Data</th>
-                                <th>Produto</th>
-                                <th>Tipo</th>
-                                <th>Quantidade</th>
-                                <th>Observação</th>
-                                <th>Registrado em</th>
-                                <th style={{ width: '60px' }}>Ação</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {filtered.map((m) => (
-                                <tr key={m.id}>
-                                    <td style={{ fontWeight: 500 }}>{formatDate(m.date)}</td>
-                                    <td style={{ color: 'var(--text-primary)', fontWeight: 500 }}>
-                                        {productMap[m.productId]?.name || 'Produto removido'}
-                                    </td>
-                                    <td>
-                                        <span className={`badge badge-${m.type}`}>
-                                            {m.type === 'entrada' ? 'Entrada' : 'Saida'}
-                                        </span>
-                                    </td>
-                                    <td style={{ fontWeight: 600 }}>{m.quantity}</td>
-                                    <td style={{ maxWidth: '200px' }} className="text-truncate">
-                                        {m.observation || '—'}
-                                    </td>
-                                    <td style={{ fontSize: '13px' }}>{formatDateTime(m.createdAt)}</td>
-                                    <td>
-                                        <button
-                                            className="btn-icon danger"
-                                            onClick={() => setDeleteTarget(m)}
-                                            title="Excluir"
-                                        >
-                                            Excluir
-                                        </button>
-                                    </td>
+                <div style={{ marginTop: '12px' }}>
+                    <div className="table-wrapper" style={{ maxHeight: '620px', overflowY: 'auto' }}>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Data</th>
+                                    <th>Vendedor</th>
+                                    <th>Produto</th>
+                                    <th>Entrada</th>
+                                    <th>Saída</th>
+                                    <th>Retorno</th>
+                                    <th>Troca</th>
+                                    <th style={{ width: '90px' }}>Ação</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                {filtered.map((m) => {
+                                    const product = productMap[m.productId];
+                                    return (
+                                        <tr key={m.id}>
+                                            <td style={{ fontWeight: 500 }}>{formatDate(m.date)}</td>
+                                            <td>{m.vendedor || '—'}</td>
+                                            <td style={{ color: 'var(--text-primary)', fontWeight: 500 }}>
+                                                {product?.name || 'Produto removido'}
+                                            </td>
+                                            <td style={{ fontWeight: 600, color: '#059669' }}>{m.entrada || 0}</td>
+                                            <td style={{ fontWeight: 600, color: '#dc2626' }}>{m.saida || 0}</td>
+                                            <td style={{ fontWeight: 600, color: '#2563eb' }}>{m.retorno || 0}</td>
+                                            <td style={{ fontWeight: 600, color: '#d97706' }}>{m.trocas || 0}</td>
+                                            <td>
+                                                <div style={{ display: 'flex', gap: '4px' }}>
+                                                    <button
+                                                        className="btn-icon"
+                                                        onClick={() => handleEdit(m)}
+                                                        title="Editar"
+                                                        style={{ fontSize: '16px', color: '#2563eb' }}
+                                                    >
+                                                        <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ verticalAlign: 'middle' }}>
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                                        </svg>
+                                                    </button>
+                                                    <button
+                                                        className="btn-icon danger"
+                                                        onClick={() => setDeleteTarget(m)}
+                                                        title="Excluir"
+                                                        style={{ fontSize: '16px', color: '#dc2626' }}
+                                                    >
+                                                        <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ verticalAlign: 'middle' }}>
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                        </svg>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                    <span style={{ display: 'block', textAlign: 'right', color: 'var(--text-muted)', fontSize: '13px', padding: '8px 4px 0' }}>
+                        {filtered.length} registro{filtered.length !== 1 ? 's' : ''}
+                    </span>
                 </div>
             )}
 
             {/* Movement Modal */}
             {showModal && (
                 <MovementModal
+                    key={editMovement ? editMovement.id : 'new'}
+                    movement={editMovement}
                     onSave={handleSave}
-                    onClose={() => setShowModal(false)}
+                    onClose={() => { setShowModal(false); setEditMovement(null); }}
                 />
             )}
 

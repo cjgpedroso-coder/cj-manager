@@ -1,19 +1,18 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { getSession, loginUser, logout as doLogout, registerUser } from '../utils/auth';
+import { getSession, loginUser, logout as doLogout, registerUser, syncSessionRole } from '../utils/auth';
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
     const [session, setSession] = useState(() => getSession());
 
-    // Keep session in sync with localStorage (role updates, etc.)
+    // Keep session in sync with DB (role updates, etc.)
     useEffect(() => {
-        const fresh = getSession();
-        if (fresh && session) {
-            if (fresh.role !== session.role) {
+        syncSessionRole().then((fresh) => {
+            if (fresh && session && fresh.role !== session.role) {
                 setSession(fresh);
             }
-        }
+        });
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Auto-logout when browser window/tab is closed
@@ -25,16 +24,15 @@ export function AuthProvider({ children }) {
         return () => window.removeEventListener('beforeunload', handleUnload);
     }, []);
 
-    const login = useCallback((username, password) => {
-        const result = loginUser(username, password);
+    const login = useCallback(async (username, password) => {
+        const result = await loginUser(username, password);
         if (result.success) {
-            // Re-read from getSession to ensure role is synced
             setSession(getSession());
         }
         return result;
     }, []);
 
-    const register = useCallback((data) => {
+    const register = useCallback(async (data) => {
         return registerUser(data);
     }, []);
 
@@ -43,7 +41,7 @@ export function AuthProvider({ children }) {
         setSession(null);
     }, []);
 
-    const isAdmin = session?.role === 'CEO';
+    const isAdmin = session?.role === 'DEV';
 
     return (
         <AuthContext.Provider value={{ session, isAuthenticated: !!session, isAdmin, login, register, logout }}>

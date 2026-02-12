@@ -16,7 +16,7 @@ export default function RegisterPage() {
         if (error) setError('');
     }
 
-    function handleSubmit(e) {
+    async function handleSubmit(e) {
         e.preventDefault();
 
         if (!form.username.trim() || !form.password) {
@@ -30,20 +30,19 @@ export default function RegisterPage() {
         }
 
         setLoading(true);
-        setTimeout(() => {
-            const result = register({
-                username: form.username.trim(),
-                password: form.password,
-            });
+        await new Promise((r) => setTimeout(r, 400));
+        const result = await register({
+            username: form.username.trim(),
+            password: form.password,
+        });
 
-            if (result.success) {
-                setLoading(false);
-                setShowSuccess(true);
-            } else {
-                setError(result.error);
-                setLoading(false);
-            }
-        }, 400);
+        if (result.success) {
+            setLoading(false);
+            setShowSuccess(true);
+        } else {
+            setError(result.error);
+            setLoading(false);
+        }
     }
 
     function handleSuccessClose() {

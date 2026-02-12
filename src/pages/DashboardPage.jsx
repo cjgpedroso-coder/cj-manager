@@ -5,10 +5,12 @@ export default function DashboardPage() {
     const [products, setProducts] = useState([]);
     const [movements, setMovements] = useState([]);
 
-    // Refresh data every time the dashboard is mounted (navigated to)
     useEffect(() => {
-        setProducts(getProducts());
-        setMovements(getMovements());
+        async function load() {
+            setProducts(await getProducts());
+            setMovements(await getMovements());
+        }
+        load();
     }, []);
 
     const stats = useMemo(() => {

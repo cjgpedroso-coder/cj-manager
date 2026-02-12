@@ -5,7 +5,7 @@ const ACCESS_LEVELS = [
     { value: 'estoque', label: 'Estoque' },
     { value: 'logistico', label: 'Logístico' },
     { value: 'administrador', label: 'Administrador' },
-    { value: 'CEO', label: 'CEO' },
+    { value: 'DEV', label: 'DEV' },
 ];
 
 export default function ApprovalModal({ pendingUsers, onApproved }) {
@@ -18,13 +18,13 @@ export default function ApprovalModal({ pendingUsers, onApproved }) {
     const user = pendingUsers[currentIndex];
     if (!user) return null;
 
-    function handleConfirm() {
+    async function handleConfirm() {
         if (!selectedRole) {
             setRoleError('Selecione o nível de acesso para continuar');
             return;
         }
 
-        approveUser(user.id, selectedRole);
+        await approveUser(user.id, selectedRole);
 
         // Move to next pending user or close
         if (currentIndex < pendingUsers.length - 1) {

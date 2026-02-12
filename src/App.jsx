@@ -10,6 +10,7 @@ import PedidosPage from './pages/PedidosPage';
 import RegrasTributariasPage from './pages/RegrasTributariasPage';
 import ProducaoPage from './pages/ProducaoPage';
 import PrecoPage from './pages/PrecoPage';
+import TabelasPrecosPage from './pages/TabelasPrecosPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import AdminUsersPage from './pages/AdminUsersPage';
@@ -46,20 +47,21 @@ export default function App() {
                         <Route path="/" element={<HomePage />} />
 
                         {/* Gerador de Preço — CEO, administrador */}
-                        <Route path="/regras-tributarias" element={<RoleRoute roles={['CEO', 'administrador']}><RegrasTributariasPage /></RoleRoute>} />
-                        <Route path="/producao" element={<RoleRoute roles={['CEO', 'administrador']}><ProducaoPage /></RoleRoute>} />
-                        <Route path="/preco" element={<RoleRoute roles={['CEO', 'administrador']}><PrecoPage /></RoleRoute>} />
+                        <Route path="/regras-tributarias" element={<RoleRoute roles={['DEV', 'administrador']}><RegrasTributariasPage /></RoleRoute>} />
+                        <Route path="/producao" element={<RoleRoute roles={['DEV', 'administrador']}><ProducaoPage /></RoleRoute>} />
+                        <Route path="/preco" element={<RoleRoute roles={['DEV', 'administrador']}><PrecoPage /></RoleRoute>} />
+                        <Route path="/tabelas-precos" element={<RoleRoute roles={['DEV', 'administrador']}><TabelasPrecosPage /></RoleRoute>} />
 
                         {/* Estoque — CEO, estoque */}
-                        <Route path="/produtos" element={<RoleRoute roles={['CEO', 'estoque']}><ProductsPage /></RoleRoute>} />
-                        <Route path="/movimentacoes" element={<RoleRoute roles={['CEO', 'estoque']}><MovementsPage /></RoleRoute>} />
+                        <Route path="/produtos" element={<RoleRoute roles={['DEV', 'estoque']}><ProductsPage /></RoleRoute>} />
+                        <Route path="/movimentacoes" element={<RoleRoute roles={['DEV', 'estoque']}><MovementsPage /></RoleRoute>} />
 
                         {/* Logístico — CEO, logistico */}
-                        <Route path="/romaneio" element={<RoleRoute roles={['CEO', 'logistico']}><RomaneioPage /></RoleRoute>} />
-                        <Route path="/pedidos" element={<RoleRoute roles={['CEO', 'logistico']}><PedidosPage /></RoleRoute>} />
+                        <Route path="/romaneio" element={<RoleRoute roles={['DEV', 'logistico']}><RomaneioPage /></RoleRoute>} />
+                        <Route path="/pedidos" element={<RoleRoute roles={['DEV', 'logistico']}><PedidosPage /></RoleRoute>} />
 
                         {/* Admin — CEO */}
-                        <Route path="/admin/usuarios" element={<RoleRoute roles={['CEO']}><AdminUsersPage /></RoleRoute>} />
+                        <Route path="/admin/usuarios" element={<RoleRoute roles={['DEV']}><AdminUsersPage /></RoleRoute>} />
                     </Route>
 
                     {/* Fallback */}

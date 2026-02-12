@@ -30,6 +30,11 @@ const PrecoIcon = () => (
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
     </svg>
 );
+const TabelasPrecosIcon = () => (
+    <svg className="nav-svg-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+    </svg>
+);
 const EstoqueIcon = () => (
     <svg className="nav-svg-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
@@ -86,16 +91,16 @@ export default function Layout() {
     const location = useLocation();
 
     const roleLabels = {
-        CEO: 'CEO',
+        DEV: 'DEV',
         administrador: 'Administrador',
         estoque: 'Estoque',
         logistico: 'Logístico',
     };
 
     const role = session?.role;
-    const canGerador = role === 'CEO' || role === 'administrador';
-    const canEstoque = role === 'CEO' || role === 'estoque';
-    const canLogistico = role === 'CEO' || role === 'logistico';
+    const canGerador = role === 'DEV' || role === 'administrador';
+    const canEstoque = role === 'DEV' || role === 'estoque';
+    const canLogistico = role === 'DEV' || role === 'logistico';
 
     // Auto-expand modules if on a child route
     useEffect(() => {
@@ -119,9 +124,9 @@ export default function Layout() {
     }, [sidebarOpen]);
 
     // Poll for pending users (admin only)
-    const checkPending = useCallback(() => {
+    const checkPending = useCallback(async () => {
         if (isAdmin) {
-            const pending = getPendingUsers();
+            const pending = await getPendingUsers();
             if (pending.length > 0) setPendingUsers(pending);
         }
     }, [isAdmin]);
@@ -142,6 +147,7 @@ export default function Layout() {
         if (location.pathname.startsWith('/regras-tributarias')) return 'Regras Tributárias';
         if (location.pathname.startsWith('/producao')) return 'Produção';
         if (location.pathname.startsWith('/preco')) return 'Preço';
+        if (location.pathname.startsWith('/tabelas-precos')) return 'Tabelas de Preço';
         if (location.pathname.startsWith('/produtos')) return 'Produtos';
         if (location.pathname.startsWith('/movimentacoes')) return 'Movimentações';
         if (location.pathname.startsWith('/romaneio')) return 'Romaneio';
@@ -271,7 +277,7 @@ export default function Layout() {
                                         to="/regras-tributarias"
                                         onClick={() => setSidebarOpen(false)}
                                         className="cj-menu-item cj-submenu-item"
-                                        style={geradorOpen ? nextAnim() : { opacity: 0, animation: 'none' }}
+                                        style={geradorOpen ? { opacity: 1 } : { opacity: 0, animation: 'none' }}
                                     >
                                         <span className="cj-menu-icon"><RegrasTribIcon /></span>
                                         <span className="cj-menu-label">Regras Tributárias</span>
@@ -280,7 +286,7 @@ export default function Layout() {
                                         to="/producao"
                                         onClick={() => setSidebarOpen(false)}
                                         className="cj-menu-item cj-submenu-item"
-                                        style={geradorOpen ? nextAnim() : { opacity: 0, animation: 'none' }}
+                                        style={geradorOpen ? { opacity: 1 } : { opacity: 0, animation: 'none' }}
                                     >
                                         <span className="cj-menu-icon"><ProducaoIcon /></span>
                                         <span className="cj-menu-label">Produção</span>
@@ -289,10 +295,19 @@ export default function Layout() {
                                         to="/preco"
                                         onClick={() => setSidebarOpen(false)}
                                         className="cj-menu-item cj-submenu-item"
-                                        style={geradorOpen ? nextAnim() : { opacity: 0, animation: 'none' }}
+                                        style={geradorOpen ? { opacity: 1 } : { opacity: 0, animation: 'none' }}
                                     >
                                         <span className="cj-menu-icon"><PrecoIcon /></span>
                                         <span className="cj-menu-label">Preço</span>
+                                    </NavLink>
+                                    <NavLink
+                                        to="/tabelas-precos"
+                                        onClick={() => setSidebarOpen(false)}
+                                        className="cj-menu-item cj-submenu-item"
+                                        style={geradorOpen ? { opacity: 1 } : { opacity: 0, animation: 'none' }}
+                                    >
+                                        <span className="cj-menu-icon"><TabelasPrecosIcon /></span>
+                                        <span className="cj-menu-label">Tabelas de Preço</span>
                                     </NavLink>
                                 </div>
                             </>
@@ -316,7 +331,7 @@ export default function Layout() {
                                         to="/produtos"
                                         onClick={() => setSidebarOpen(false)}
                                         className="cj-menu-item cj-submenu-item"
-                                        style={estoqueOpen ? nextAnim() : { opacity: 0, animation: 'none' }}
+                                        style={estoqueOpen ? { opacity: 1 } : { opacity: 0, animation: 'none' }}
                                     >
                                         <span className="cj-menu-icon"><ProdutosIcon /></span>
                                         <span className="cj-menu-label">Produtos</span>
@@ -325,7 +340,7 @@ export default function Layout() {
                                         to="/movimentacoes"
                                         onClick={() => setSidebarOpen(false)}
                                         className="cj-menu-item cj-submenu-item"
-                                        style={estoqueOpen ? nextAnim() : { opacity: 0, animation: 'none' }}
+                                        style={estoqueOpen ? { opacity: 1 } : { opacity: 0, animation: 'none' }}
                                     >
                                         <span className="cj-menu-icon"><MovimentacoesIcon /></span>
                                         <span className="cj-menu-label">Movimentações</span>
@@ -352,7 +367,7 @@ export default function Layout() {
                                         to="/romaneio"
                                         onClick={() => setSidebarOpen(false)}
                                         className="cj-menu-item cj-submenu-item"
-                                        style={logisticoOpen ? nextAnim() : { opacity: 0, animation: 'none' }}
+                                        style={logisticoOpen ? { opacity: 1 } : { opacity: 0, animation: 'none' }}
                                     >
                                         <span className="cj-menu-icon"><RomaneioIcon /></span>
                                         <span className="cj-menu-label">Romaneio</span>
@@ -361,7 +376,7 @@ export default function Layout() {
                                         to="/pedidos"
                                         onClick={() => setSidebarOpen(false)}
                                         className="cj-menu-item cj-submenu-item"
-                                        style={logisticoOpen ? nextAnim() : { opacity: 0, animation: 'none' }}
+                                        style={logisticoOpen ? { opacity: 1 } : { opacity: 0, animation: 'none' }}
                                     >
                                         <span className="cj-menu-icon"><PedidosIcon /></span>
                                         <span className="cj-menu-label">Pedidos</span>

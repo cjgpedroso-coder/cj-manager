@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getUsers } from '../utils/auth';
+import { getUsers, updateUser, deleteUser } from '../utils/auth';
 import { useAuth } from '../context/AuthContext';
 import ConfirmDialog from '../components/ConfirmDialog';
 
@@ -14,16 +14,16 @@ export default function AdminUsersPage() {
     const [deleteTarget, setDeleteTarget] = useState(null);
 
     const roleLabels = {
-        CEO: 'CEO',
+        DEV: 'DEV',
         administrador: 'Administrador',
         estoque: 'Estoque',
         logistico: 'Logístico',
     };
 
-    const roleOptions = ['CEO', 'administrador', 'estoque', 'logistico'];
+    const roleOptions = ['DEV', 'administrador', 'estoque', 'logistico'];
 
-    const loadUsers = useCallback(() => {
-        setUsers(getUsers());
+    const loadUsers = useCallback(async () => {
+        setUsers(await getUsers());
     }, []);
 
     useEffect(() => {
@@ -52,29 +52,24 @@ export default function AdminUsersPage() {
         setEditForm((prev) => ({ ...prev, [name]: value }));
     }
 
-    function saveEdit() {
+    async function saveEdit() {
         if (!editingUser) return;
-        const allUsers = getUsers();
-        const index = allUsers.findIndex((u) => u.id === editingUser.id);
-        if (index !== -1) {
-            allUsers[index].username = editForm.username.trim().toLowerCase();
-            allUsers[index].password = editForm.password;
-            allUsers[index].role = editForm.role;
-            allUsers[index].status = editForm.status;
-            allUsers[index].updatedAt = new Date().toISOString();
-            localStorage.setItem('cj_users', JSON.stringify(allUsers));
-        }
+        await updateUser(editingUser.id, {
+            username: editForm.username.trim().toLowerCase(),
+            password: editForm.password,
+            role: editForm.role,
+            status: editForm.status,
+        });
         setEditingUser(null);
-        loadUsers();
+        await loadUsers();
     }
 
-    function handleDelete() {
+    async function handleDelete() {
         if (!deleteTarget) return;
         if (deleteTarget.id === session?.userId) return;
-        const allUsers = getUsers().filter((u) => u.id !== deleteTarget.id);
-        localStorage.setItem('cj_users', JSON.stringify(allUsers));
+        await deleteUser(deleteTarget.id);
         setDeleteTarget(null);
-        loadUsers();
+        await loadUsers();
     }
 
     function formatDate(iso) {
@@ -241,10 +236,10 @@ export default function AdminUsersPage() {
                                                 borderRadius: '4px',
                                                 fontSize: '12px',
                                                 fontWeight: 600,
-                                                background: user.role === 'CEO'
+                                                background: user.role === 'DEV'
                                                     ? 'rgba(234,179,8,0.12)'
                                                     : 'rgba(5, 150, 105, 0.08)',
-                                                color: user.role === 'CEO'
+                                                color: user.role === 'DEV'
                                                     ? '#eab308'
                                                     : '#059669',
                                             }}>

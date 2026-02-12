@@ -104,7 +104,7 @@ export default function Layout() {
 
     // Auto-expand modules if on a child route
     useEffect(() => {
-        if (location.pathname.startsWith('/produtos') || location.pathname.startsWith('/movimentacoes')) {
+        if (location.pathname.startsWith('/produtos') || location.pathname.startsWith('/movimentacoes') || location.pathname.startsWith('/producao-estoque')) {
             setEstoqueOpen(true);
         }
         if (location.pathname.startsWith('/romaneio') || location.pathname.startsWith('/pedidos')) {
@@ -145,6 +145,7 @@ export default function Layout() {
     function getPageTitle() {
         if (location.pathname === '/') return 'Início';
         if (location.pathname.startsWith('/regras-tributarias')) return 'Regras Tributárias';
+        if (location.pathname.startsWith('/producao-estoque')) return 'Produção';
         if (location.pathname.startsWith('/producao')) return 'Produção';
         if (location.pathname.startsWith('/preco')) return 'Preço';
         if (location.pathname.startsWith('/tabelas-precos')) return 'Tabelas de Preço';
@@ -344,6 +345,15 @@ export default function Layout() {
                                     >
                                         <span className="cj-menu-icon"><MovimentacoesIcon /></span>
                                         <span className="cj-menu-label">Movimentações</span>
+                                    </NavLink>
+                                    <NavLink
+                                        to="/producao-estoque"
+                                        onClick={() => setSidebarOpen(false)}
+                                        className="cj-menu-item cj-submenu-item"
+                                        style={estoqueOpen ? { opacity: 1 } : { opacity: 0, animation: 'none' }}
+                                    >
+                                        <span className="cj-menu-icon"><ProducaoIcon /></span>
+                                        <span className="cj-menu-label">Produção</span>
                                     </NavLink>
                                 </div>
                             </>

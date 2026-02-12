@@ -108,3 +108,61 @@ export async function deleteGramatura(name) {
   const res = await fetch(`${API}/gramaturas/${encodeURIComponent(name)}`, { method: 'DELETE' });
   return res.json();
 }
+
+// ── Raw Materials (Matérias Primas) ──────────────────────────
+
+export async function getRawMaterials() {
+  const res = await fetch(`${API}/raw-materials`);
+  return res.json();
+}
+
+export async function saveRawMaterial(material) {
+  if (material.id) {
+    const res = await fetch(`${API}/raw-materials/${material.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(material),
+    });
+    return res.json();
+  } else {
+    const res = await fetch(`${API}/raw-materials`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(material),
+    });
+    return res.json();
+  }
+}
+
+export async function deleteRawMaterial(id) {
+  await fetch(`${API}/raw-materials/${id}`, { method: 'DELETE' });
+}
+
+// ── Raw Material Movements ───────────────────────────────────
+
+export async function getRawMaterialMovements() {
+  const res = await fetch(`${API}/raw-material-movements`);
+  return res.json();
+}
+
+export async function saveRawMaterialMovement(movement) {
+  const res = await fetch(`${API}/raw-material-movements`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(movement),
+  });
+  return res.json();
+}
+
+export async function updateRawMaterialMovement(id, movement) {
+  const res = await fetch(`${API}/raw-material-movements/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(movement),
+  });
+  return res.json();
+}
+
+export async function deleteRawMaterialMovement(id) {
+  await fetch(`${API}/raw-material-movements/${id}`, { method: 'DELETE' });
+}

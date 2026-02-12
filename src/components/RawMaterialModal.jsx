@@ -1,34 +1,27 @@
 import { useState, useRef, useEffect } from 'react';
 import { getEmbalagens, saveEmbalagem, deleteEmbalagem, getGramaturas, saveGramatura, deleteGramatura } from '../utils/storage';
 
-function generateSKU() {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let sku = 'CJ-';
-    for (let i = 0; i < 6; i++) {
-        sku += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return sku;
-}
-
-export default function ProductModal({ product, onSave, onClose }) {
-    const isEditing = !!product?.id;
+export default function RawMaterialModal({ material, onSave, onClose }) {
+    const isEditing = !!material?.id;
 
     const [form, setForm] = useState({
-        name: product?.name || '',
-        category: product?.category || '',
-        embalagem: product?.embalagem || '',
-        gramatura: product?.gramatura || '',
-        currentStock: product?.currentStock ?? '',
-        minStock: product?.minStock ?? '',
+        name: material?.name || '',
+        embalagem: material?.embalagem || '',
+        gramatura: material?.gramatura || '',
+        currentStock: material?.currentStock ?? '',
+        minStock: material?.minStock ?? '',
     });
 
     const [errors, setErrors] = useState({});
+
+    // ── Embalagem dropdown state ─────────────────────────────
     const [embalagens, setEmbalagens] = useState([]);
     const [addingEmbalagem, setAddingEmbalagem] = useState(false);
     const [newEmbalagem, setNewEmbalagem] = useState('');
     const [embDropdownOpen, setEmbDropdownOpen] = useState(false);
     const embDropdownRef = useRef(null);
 
+    // ── Gramatura dropdown state ─────────────────────────────
     const [gramaturas, setGramaturas] = useState([]);
     const [addingGramatura, setAddingGramatura] = useState(false);
     const [newGramatura, setNewGramatura] = useState('');
@@ -61,6 +54,7 @@ export default function ProductModal({ product, onSave, onClose }) {
         if (errors[name]) setErrors((prev) => ({ ...prev, [name]: '' }));
     }
 
+    // ── Embalagem handlers ───────────────────────────────────
     function handleSelectEmbalagem(emb) {
         setForm((prev) => ({ ...prev, embalagem: emb }));
         setEmbDropdownOpen(false);
@@ -91,6 +85,7 @@ export default function ProductModal({ product, onSave, onClose }) {
         setAddingEmbalagem(false);
     }
 
+    // ── Gramatura handlers ───────────────────────────────────
     function handleSelectGramatura(g) {
         setForm((prev) => ({ ...prev, gramatura: g }));
         setGramDropdownOpen(false);
@@ -121,10 +116,10 @@ export default function ProductModal({ product, onSave, onClose }) {
         setAddingGramatura(false);
     }
 
+    // ── Validation & Submit ──────────────────────────────────
     function validate() {
         const newErrors = {};
         if (!form.name.trim()) newErrors.name = 'Nome é obrigatório';
-        if (!form.category) newErrors.category = 'Categoria é obrigatória';
         if (form.currentStock !== '' && isNaN(Number(form.currentStock)))
             newErrors.currentStock = 'Deve ser um número';
         if (form.minStock !== '' && isNaN(Number(form.minStock)))
@@ -143,11 +138,8 @@ export default function ProductModal({ product, onSave, onClose }) {
             minStock: form.minStock !== '' ? Number(form.minStock) : 0,
         };
 
-        if (!isEditing) {
-            data.sku = generateSKU();
-        } else {
-            data.id = product.id;
-            data.sku = product.sku;
+        if (isEditing) {
+            data.id = material.id;
         }
 
         onSave(data);
@@ -155,127 +147,111 @@ export default function ProductModal({ product, onSave, onClose }) {
 
     return (
         <div className="modal-overlay" onClick={onClose}>
-            <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 620, minHeight: 520 }}>
+            <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 520 }}>
                 <div className="modal-header">
-                    <h3>{isEditing ? 'Editar Produto' : 'Novo Produto'}</h3>
+                    <h3>{isEditing ? 'Editar Matéria Prima' : 'Nova Matéria Prima'}</h3>
                     <button className="btn-icon" onClick={onClose}>✕</button>
                 </div>
 
                 <form onSubmit={handleSubmit}>
                     <div className="modal-body" style={{ gap: '20px' }}>
-                        {/* Row 1: Nome */}
+                        {/* Nome */}
                         <div className="form-group">
-                            <label>Nome do Produto <span className="required">*</span></label>
+                            <label>Nome Matéria Prima <span className="required">*</span></label>
                             <input
                                 className={`form-input ${errors.name ? 'error' : ''}`}
                                 name="name"
                                 value={form.name}
                                 onChange={handleChange}
-                                placeholder="Ex: Sorvete de Chocolate 1L"
+                                placeholder="Ex: Leite Condensado, Açúcar..."
                                 autoFocus
                             />
                             {errors.name && <span style={{ color: 'var(--accent-danger)', fontSize: '12px' }}>{errors.name}</span>}
                         </div>
 
-                        {/* Row 2: Categoria + Embalagem */}
-                        <div className="form-row">
-                            <div className="form-group">
-                                <label>Categoria <span className="required">*</span></label>
-                                <select
-                                    className={`form-select ${errors.category ? 'error' : ''}`}
-                                    name="category"
-                                    value={form.category}
-                                    onChange={handleChange}
-                                >
-                                    <option value="">Selecione...</option>
-                                    <option value="Produção">Produção</option>
-                                    <option value="Tercerizado">Tercerizado</option>
-                                </select>
-                                {errors.category && <span style={{ color: 'var(--accent-danger)', fontSize: '12px' }}>{errors.category}</span>}
-                            </div>
-                            <div className="form-group">
-                                <label>Embalagem</label>
-                                {addingEmbalagem ? (
-                                    <div style={{ display: 'flex', gap: '6px' }}>
-                                        <input
-                                            className="form-input"
-                                            value={newEmbalagem}
-                                            onChange={(e) => setNewEmbalagem(e.target.value)}
-                                            placeholder="Ex: Pote 1L"
-                                            autoFocus
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter') { e.preventDefault(); handleAddEmbalagem(); }
-                                                if (e.key === 'Escape') handleCancelAdd();
-                                            }}
-                                        />
-                                        <button
-                                            type="button"
-                                            className="btn btn-primary"
-                                            onClick={handleAddEmbalagem}
-                                            style={{ padding: '6px 12px', fontSize: '13px', whiteSpace: 'nowrap' }}
-                                        >
-                                            OK
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className="btn btn-secondary"
-                                            onClick={handleCancelAdd}
-                                            style={{ padding: '6px 10px', fontSize: '13px' }}
-                                        >
-                                            ✕
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <div className="emb-dropdown" ref={embDropdownRef}>
-                                        <button
-                                            type="button"
-                                            className="form-select emb-dropdown-trigger"
-                                            onClick={() => setEmbDropdownOpen(!embDropdownOpen)}
-                                        >
-                                            <span style={{ opacity: form.embalagem ? 1 : 0.5 }}>
-                                                {form.embalagem || 'Selecione...'}
-                                            </span>
-                                            <span style={{ fontSize: '10px', marginLeft: 'auto' }}>▼</span>
-                                        </button>
-                                        {embDropdownOpen && (
-                                            <div className="emb-dropdown-menu">
-                                                <div
-                                                    className="emb-dropdown-item"
-                                                    onClick={() => handleSelectEmbalagem('')}
-                                                >
-                                                    <span style={{ opacity: 0.5 }}>Nenhuma</span>
-                                                </div>
-                                                {embalagens.map((emb) => (
-                                                    <div
-                                                        key={emb}
-                                                        className={`emb-dropdown-item ${form.embalagem === emb ? 'selected' : ''}`}
-                                                        onClick={() => handleSelectEmbalagem(emb)}
-                                                    >
-                                                        <span>{emb}</span>
-                                                        <button
-                                                            type="button"
-                                                            className="emb-delete-btn"
-                                                            onClick={(e) => handleDeleteEmbalagem(emb, e)}
-                                                            title="Excluir embalagem"
-                                                        >
-                                                            ✕
-                                                        </button>
-                                                    </div>
-                                                ))}
-                                                <div
-                                                    className="emb-dropdown-item emb-dropdown-add"
-                                                    onClick={() => { setAddingEmbalagem(true); setEmbDropdownOpen(false); }}
-                                                >
-                                                    + Adicionar
-                                                </div>
+                        {/* Embalagem */}
+                        <div className="form-group">
+                            <label>Embalagem</label>
+                            {addingEmbalagem ? (
+                                <div style={{ display: 'flex', gap: '6px' }}>
+                                    <input
+                                        className="form-input"
+                                        value={newEmbalagem}
+                                        onChange={(e) => setNewEmbalagem(e.target.value)}
+                                        placeholder="Ex: Pote 1L"
+                                        autoFocus
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') { e.preventDefault(); handleAddEmbalagem(); }
+                                            if (e.key === 'Escape') handleCancelAdd();
+                                        }}
+                                    />
+                                    <button
+                                        type="button"
+                                        className="btn btn-primary"
+                                        onClick={handleAddEmbalagem}
+                                        style={{ padding: '6px 12px', fontSize: '13px', whiteSpace: 'nowrap' }}
+                                    >
+                                        OK
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="btn btn-secondary"
+                                        onClick={handleCancelAdd}
+                                        style={{ padding: '6px 10px', fontSize: '13px' }}
+                                    >
+                                        ✕
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="emb-dropdown" ref={embDropdownRef}>
+                                    <button
+                                        type="button"
+                                        className="form-select emb-dropdown-trigger"
+                                        onClick={() => setEmbDropdownOpen(!embDropdownOpen)}
+                                    >
+                                        <span style={{ opacity: form.embalagem ? 1 : 0.5 }}>
+                                            {form.embalagem || 'Selecione...'}
+                                        </span>
+                                        <span style={{ fontSize: '10px', marginLeft: 'auto' }}>▼</span>
+                                    </button>
+                                    {embDropdownOpen && (
+                                        <div className="emb-dropdown-menu">
+                                            <div
+                                                className="emb-dropdown-item"
+                                                onClick={() => handleSelectEmbalagem('')}
+                                            >
+                                                <span style={{ opacity: 0.5 }}>Nenhuma</span>
                                             </div>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
+                                            {embalagens.map((emb) => (
+                                                <div
+                                                    key={emb}
+                                                    className={`emb-dropdown-item ${form.embalagem === emb ? 'selected' : ''}`}
+                                                    onClick={() => handleSelectEmbalagem(emb)}
+                                                >
+                                                    <span>{emb}</span>
+                                                    <button
+                                                        type="button"
+                                                        className="emb-delete-btn"
+                                                        onClick={(e) => handleDeleteEmbalagem(emb, e)}
+                                                        title="Excluir embalagem"
+                                                    >
+                                                        ✕
+                                                    </button>
+                                                </div>
+                                            ))}
+                                            <div
+                                                className="emb-dropdown-item emb-dropdown-add"
+                                                onClick={() => { setAddingEmbalagem(true); setEmbDropdownOpen(false); }}
+                                            >
+                                                + Adicionar
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
 
-                        {/* Row 3: Gramatura */}
+                        {/* Gramatura */}
                         <div className="form-group">
                             <label>Gramatura</label>
                             {addingGramatura ? (
@@ -357,7 +333,7 @@ export default function ProductModal({ product, onSave, onClose }) {
                             )}
                         </div>
 
-                        {/* Row 4: Estoque Inicial + Estoque Mínimo */}
+                        {/* Estoque Inicial + Estoque Mínimo */}
                         <div className="form-row">
                             <div className="form-group">
                                 <label>Estoque Atual</label>
@@ -393,7 +369,7 @@ export default function ProductModal({ product, onSave, onClose }) {
                             Cancelar
                         </button>
                         <button type="submit" className="btn btn-primary">
-                            {isEditing ? 'Salvar Alterações' : 'Cadastrar Produto'}
+                            {isEditing ? 'Salvar Alterações' : 'Cadastrar Matéria Prima'}
                         </button>
                     </div>
                 </form>

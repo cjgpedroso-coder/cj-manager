@@ -5,6 +5,7 @@ import HomePage from './pages/HomePage';
 import DashboardPage from './pages/DashboardPage';
 import ProductsPage from './pages/ProductsPage';
 import MovementsPage from './pages/MovementsPage';
+import ProducaoEstoquePage from './pages/ProducaoEstoquePage';
 import RomaneioPage from './pages/RomaneioPage';
 import PedidosPage from './pages/PedidosPage';
 import RegrasTributariasPage from './pages/RegrasTributariasPage';
@@ -55,6 +56,7 @@ export default function App() {
                         {/* Estoque — CEO, estoque */}
                         <Route path="/produtos" element={<RoleRoute roles={['DEV', 'estoque']}><ProductsPage /></RoleRoute>} />
                         <Route path="/movimentacoes" element={<RoleRoute roles={['DEV', 'estoque']}><MovementsPage /></RoleRoute>} />
+                        <Route path="/producao-estoque" element={<RoleRoute roles={['DEV', 'estoque']}><ProducaoEstoquePage /></RoleRoute>} />
 
                         {/* Logístico — CEO, logistico */}
                         <Route path="/romaneio" element={<RoleRoute roles={['DEV', 'logistico']}><RomaneioPage /></RoleRoute>} />

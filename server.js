@@ -68,6 +68,26 @@ db.exec(`
     count INTEGER DEFAULT 0,
     cooldownUntil INTEGER
   );
+
+  CREATE TABLE IF NOT EXISTS raw_materials (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    embalagem TEXT,
+    gramatura TEXT,
+    currentStock INTEGER DEFAULT 0,
+    minStock INTEGER DEFAULT 0,
+    createdAt TEXT,
+    updatedAt TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS raw_material_movements (
+    id TEXT PRIMARY KEY,
+    rawMaterialId TEXT,
+    date TEXT,
+    entrada INTEGER DEFAULT 0,
+    saida INTEGER DEFAULT 0,
+    createdAt TEXT
+  );
 `);
 
 // Seed default admin user
@@ -384,6 +404,112 @@ app.delete('/api/gramaturas/:name', (req, res) => {
     db.prepare('DELETE FROM gramaturas WHERE name = ?').run(req.params.name);
     const items = db.prepare('SELECT name FROM gramaturas').all().map(r => r.name);
     res.json(items);
+});
+
+// ── Raw Materials ─────────────────────────────────────────────
+
+app.get('/api/raw-materials', (req, res) => {
+    const items = db.prepare('SELECT * FROM raw_materials').all();
+    res.json(items);
+});
+
+app.post('/api/raw-materials', (req, res) => {
+    const m = req.body;
+    m.id = generateId();
+    m.createdAt = new Date().toISOString();
+    m.updatedAt = new Date().toISOString();
+
+    db.prepare(`INSERT INTO raw_materials (id, name, embalagem, gramatura, currentStock, minStock, createdAt, updatedAt)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+        .run(m.id, m.name || '', m.embalagem || '', m.gramatura || '',
+            Number(m.currentStock) || 0, Number(m.minStock) || 0,
+            m.createdAt, m.updatedAt);
+
+    res.json(m);
+});
+
+app.put('/api/raw-materials/:id', (req, res) => {
+    const m = req.body;
+    db.prepare(`UPDATE raw_materials SET name=?, embalagem=?, gramatura=?, currentStock=?, minStock=?, updatedAt=? WHERE id=?`)
+        .run(m.name || '', m.embalagem || '', m.gramatura || '',
+            Number(m.currentStock) || 0, Number(m.minStock) || 0,
+            new Date().toISOString(), req.params.id);
+    res.json({ success: true });
+});
+
+app.delete('/api/raw-materials/:id', (req, res) => {
+    db.prepare('DELETE FROM raw_materials WHERE id = ?').run(req.params.id);
+    res.json({ success: true });
+});
+
+// ── Raw Material Movements ───────────────────────────────────
+
+app.get('/api/raw-material-movements', (req, res) => {
+    const items = db.prepare('SELECT * FROM raw_material_movements ORDER BY createdAt DESC').all();
+    res.json(items);
+});
+
+app.post('/api/raw-material-movements', (req, res) => {
+    const m = req.body;
+    m.id = generateId();
+    m.createdAt = new Date().toISOString();
+
+    const entrada = Number(m.entrada) || 0;
+    const saida = Number(m.saida) || 0;
+
+    db.prepare(`INSERT INTO raw_material_movements (id, rawMaterialId, date, entrada, saida, createdAt)
+    VALUES (?, ?, ?, ?, ?, ?)`)
+        .run(m.id, m.rawMaterialId, m.date, entrada, saida, m.createdAt);
+
+    // Update raw material currentStock
+    const mat = db.prepare('SELECT * FROM raw_materials WHERE id = ?').get(m.rawMaterialId);
+    if (mat) {
+        const newStock = (Number(mat.currentStock) || 0) + entrada - saida;
+        db.prepare('UPDATE raw_materials SET currentStock = ?, updatedAt = ? WHERE id = ?')
+            .run(newStock, new Date().toISOString(), m.rawMaterialId);
+    }
+
+    res.json(m);
+});
+
+app.put('/api/raw-material-movements/:id', (req, res) => {
+    const old = db.prepare('SELECT * FROM raw_material_movements WHERE id = ?').get(req.params.id);
+    if (!old) return res.status(404).json({ error: 'Not found' });
+
+    const m = req.body;
+    const newEntrada = Number(m.entrada) || 0;
+    const newSaida = Number(m.saida) || 0;
+
+    // Reverse old impact, apply new
+    const mat = db.prepare('SELECT * FROM raw_materials WHERE id = ?').get(old.rawMaterialId);
+    if (mat) {
+        const oldChange = (Number(old.entrada) || 0) - (Number(old.saida) || 0);
+        const reverted = (Number(mat.currentStock) || 0) - oldChange;
+        const newStock = reverted + newEntrada - newSaida;
+        db.prepare('UPDATE raw_materials SET currentStock = ?, updatedAt = ? WHERE id = ?')
+            .run(newStock, new Date().toISOString(), old.rawMaterialId);
+    }
+
+    db.prepare(`UPDATE raw_material_movements SET rawMaterialId=?, date=?, entrada=?, saida=? WHERE id=?`)
+        .run(m.rawMaterialId || old.rawMaterialId, m.date, newEntrada, newSaida, req.params.id);
+
+    res.json({ ...old, ...m, id: req.params.id });
+});
+
+app.delete('/api/raw-material-movements/:id', (req, res) => {
+    const old = db.prepare('SELECT * FROM raw_material_movements WHERE id = ?').get(req.params.id);
+    if (old) {
+        // Reverse impact on currentStock
+        const mat = db.prepare('SELECT * FROM raw_materials WHERE id = ?').get(old.rawMaterialId);
+        if (mat) {
+            const oldChange = (Number(old.entrada) || 0) - (Number(old.saida) || 0);
+            const newStock = (Number(mat.currentStock) || 0) - oldChange;
+            db.prepare('UPDATE raw_materials SET currentStock = ?, updatedAt = ? WHERE id = ?')
+                .run(newStock, new Date().toISOString(), old.rawMaterialId);
+        }
+        db.prepare('DELETE FROM raw_material_movements WHERE id = ?').run(req.params.id);
+    }
+    res.json({ success: true });
 });
 
 // ── Start Server ─────────────────────────────────────────────

@@ -14,6 +14,7 @@ export default function MovementsPage() {
     const [filterType, setFilterType] = useState('');
     const [filterProduct, setFilterProduct] = useState('');
     const [filterDate, setFilterDate] = useState(new Date().toISOString().slice(0, 10));
+    const [searchVendedor, setSearchVendedor] = useState('');
 
     const refresh = useCallback(async () => {
         setMovements(await getMovements());
@@ -34,6 +35,7 @@ export default function MovementsPage() {
                 if (filterType && m.type !== filterType) return false;
                 if (filterProduct && m.productId !== filterProduct) return false;
                 if (filterDate && m.date !== filterDate) return false;
+                if (searchVendedor && !(m.vendedor || '').toLowerCase().includes(searchVendedor.toLowerCase())) return false;
                 return true;
             })
             .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -245,12 +247,22 @@ export default function MovementsPage() {
                 </div>
             ) : (
                 <div style={{ marginTop: '12px' }}>
+                    <div className="card" style={{ padding: '16px 20px', marginBottom: '12px' }}>
+                        <input
+                            className="form-input"
+                            type="text"
+                            placeholder="Buscar por Caixa/Produção..."
+                            value={searchVendedor}
+                            onChange={(e) => setSearchVendedor(e.target.value)}
+                            style={{ width: '40%', border: '1.5px solid #999' }}
+                        />
+                    </div>
                     <div className="table-wrapper" style={{ maxHeight: '620px', overflowY: 'auto' }}>
                         <table>
                             <thead>
                                 <tr>
                                     <th>Data</th>
-                                    <th>Vendedor</th>
+                                    <th>Caixa/Produção</th>
                                     <th>Produto</th>
                                     <th>Entrada</th>
                                     <th>Saída</th>
@@ -275,16 +287,6 @@ export default function MovementsPage() {
                                             <td style={{ fontWeight: 600, color: '#d97706' }}>{m.trocas || 0}</td>
                                             <td>
                                                 <div style={{ display: 'flex', gap: '4px' }}>
-                                                    <button
-                                                        className="btn-icon"
-                                                        onClick={() => handleEdit(m)}
-                                                        title="Editar"
-                                                        style={{ fontSize: '16px', color: '#2563eb' }}
-                                                    >
-                                                        <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ verticalAlign: 'middle' }}>
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                                        </svg>
-                                                    </button>
                                                     <button
                                                         className="btn-icon danger"
                                                         onClick={() => setDeleteTarget(m)}

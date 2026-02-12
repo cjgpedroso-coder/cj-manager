@@ -5,6 +5,12 @@
 import express from 'express';
 import cors from 'cors';
 import db from './db.js';
+import parquet from '@dsnp/parquetjs';
+import archiver from 'archiver';
+import AdmZip from 'adm-zip';
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
 
 const app = express();
 app.use(cors());
@@ -801,6 +807,153 @@ app.put('/api/products/:id/vendas-mes', (req, res) => {
     db.prepare('UPDATE products SET vendasMes = ?, updatedAt = ? WHERE id = ?')
         .run(Number(vendasMes) || 0, new Date().toISOString(), req.params.id);
     res.json({ success: true });
+});
+
+// ── Backup / Restore ─────────────────────────────────────────
+
+// Helper: map SQLite column types to Parquet types
+function sqliteTypeToParquet(sqlType) {
+    const t = (sqlType || '').toUpperCase();
+    if (t.includes('INT')) return { type: 'INT64' };
+    if (t.includes('REAL') || t.includes('FLOAT') || t.includes('DOUBLE')) return { type: 'DOUBLE' };
+    return { type: 'UTF8' }; // TEXT and anything else
+}
+
+// GET /api/backup — streams a ZIP file containing one .parquet per table
+app.get('/api/backup', async (req, res) => {
+    try {
+        const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cj-backup-'));
+        const tableRows = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").all();
+        const tableNames = tableRows.map(r => r.name);
+
+        for (const tableName of tableNames) {
+            const rows = db.prepare(`SELECT * FROM "${tableName}"`).all();
+            const colInfo = db.prepare(`PRAGMA table_info("${tableName}")`).all();
+
+            // Build parquet schema
+            const schemaFields = {};
+            for (const col of colInfo) {
+                const pType = sqliteTypeToParquet(col.type);
+                schemaFields[col.name] = { ...pType, optional: true };
+            }
+            const schema = new parquet.ParquetSchema(schemaFields);
+            const filePath = path.join(tmpDir, `${tableName}.parquet`);
+            const writer = await parquet.ParquetWriter.openFile(schema, filePath);
+
+            for (const row of rows) {
+                // Convert values for parquet compatibility
+                const clean = {};
+                for (const col of colInfo) {
+                    let val = row[col.name];
+                    if (val === null || val === undefined) continue; // skip nulls (optional)
+                    const pType = sqliteTypeToParquet(col.type);
+                    if (pType.type === 'INT64') val = Number(val) || 0;
+                    else if (pType.type === 'DOUBLE') val = Number(val) || 0;
+                    else val = String(val);
+                    clean[col.name] = val;
+                }
+                await writer.appendRow(clean);
+            }
+            await writer.close();
+        }
+
+        // Create ZIP
+        res.setHeader('Content-Type', 'application/zip');
+        res.setHeader('Content-Disposition', `attachment; filename="cj-backup-${new Date().toISOString().slice(0, 10)}.zip"`);
+
+        const archive = archiver('zip', { zlib: { level: 9 } });
+        archive.pipe(res);
+        for (const tableName of tableNames) {
+            archive.file(path.join(tmpDir, `${tableName}.parquet`), { name: `${tableName}.parquet` });
+        }
+        archive.on('end', () => {
+            // Cleanup tmp files
+            for (const tableName of tableNames) {
+                try { fs.unlinkSync(path.join(tmpDir, `${tableName}.parquet`)); } catch { }
+            }
+            try { fs.rmdirSync(tmpDir); } catch { }
+        });
+        await archive.finalize();
+    } catch (err) {
+        console.error('Backup error:', err);
+        if (!res.headersSent) res.status(500).json({ error: err.message });
+    }
+});
+
+// POST /api/restore — accepts a ZIP upload, restores all tables
+app.post('/api/restore', express.raw({ type: 'application/octet-stream', limit: '100mb' }), async (req, res) => {
+    try {
+        const zip = new AdmZip(req.body);
+        const entries = zip.getEntries();
+        const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cj-restore-'));
+        const results = [];
+
+        for (const entry of entries) {
+            if (!entry.entryName.endsWith('.parquet')) continue;
+            const tableName = path.basename(entry.entryName, '.parquet');
+            const filePath = path.join(tmpDir, entry.entryName);
+            fs.writeFileSync(filePath, entry.getData());
+
+            const reader = await parquet.ParquetReader.openFile(filePath);
+            const schema = reader.getSchema();
+            const fieldNames = Object.keys(schema.fields);
+            const cursor = reader.getCursor();
+
+            // Collect all rows
+            const rows = [];
+            let record;
+            while ((record = await cursor.next())) {
+                rows.push(record);
+            }
+            await reader.close();
+
+            // Create table if not exists (all columns TEXT, we'll try to be smart)
+            const existingTable = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?").get(tableName);
+            if (!existingTable) {
+                const colDefs = fieldNames.map(f => {
+                    const field = schema.fields[f];
+                    const pType = field.primitiveType || field.originalType || '';
+                    let sqlType = 'TEXT';
+                    if (pType === 'INT64' || pType === 'INT32') sqlType = 'INTEGER';
+                    else if (pType === 'DOUBLE' || pType === 'FLOAT') sqlType = 'REAL';
+                    return `"${f}" ${sqlType}`;
+                }).join(', ');
+                db.exec(`CREATE TABLE IF NOT EXISTS "${tableName}" (${colDefs})`);
+            }
+
+            // Clear existing data and insert backup data
+            db.exec(`DELETE FROM "${tableName}"`);
+
+            if (rows.length > 0) {
+                const placeholders = fieldNames.map(() => '?').join(', ');
+                const cols = fieldNames.map(f => `"${f}"`).join(', ');
+                const insertStmt = db.prepare(`INSERT INTO "${tableName}" (${cols}) VALUES (${placeholders})`);
+
+                const insertMany = db.transaction((rowList) => {
+                    for (const row of rowList) {
+                        const values = fieldNames.map(f => {
+                            const val = row[f];
+                            if (val === undefined || val === null) return null;
+                            return val;
+                        });
+                        insertStmt.run(...values);
+                    }
+                });
+                insertMany(rows);
+            }
+
+            results.push({ table: tableName, rows: rows.length });
+            try { fs.unlinkSync(filePath); } catch { }
+        }
+
+        // Cleanup
+        try { fs.rmdirSync(tmpDir, { recursive: true }); } catch { }
+
+        res.json({ success: true, tables: results });
+    } catch (err) {
+        console.error('Restore error:', err);
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // ── Start Server ─────────────────────────────────────────────

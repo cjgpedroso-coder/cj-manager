@@ -10,6 +10,9 @@ const TABLE_LABELS = {
     movements: 'Estoque / Movimentações',
     raw_materials: 'Estoque / Matérias Primas',
     raw_material_movements: 'Estoque / Mov. Matérias Primas',
+    recipes: 'Gerador de Preço / Receitas',
+    recipe_ingredients: 'Gerador de Preço / Ingredientes de Receitas',
+    costs: 'Gerador de Preço / Custos',
     users: 'Administração / Usuários',
     login_attempts: 'Administração / Login',
     pending_queue: 'Administração / Aprovações',
@@ -36,6 +39,58 @@ export default function DatabasePage() {
 
     // Delete confirm
     const [deleteTarget, setDeleteTarget] = useState(null);
+
+    // Backup / Restore
+    const [backupLoading, setBackupLoading] = useState(false);
+    const [restoreLoading, setRestoreLoading] = useState(false);
+    const restoreInputRef = useRef(null);
+
+    async function handleBackup() {
+        setBackupLoading(true);
+        try {
+            const resp = await fetch('http://localhost:3001/api/backup');
+            if (!resp.ok) throw new Error('Erro ao gerar backup');
+            const blob = await resp.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `cj-backup-${new Date().toISOString().slice(0, 10)}.zip`;
+            a.click();
+            URL.revokeObjectURL(url);
+        } catch (err) {
+            alert('Erro no backup: ' + err.message);
+        }
+        setBackupLoading(false);
+    }
+
+    async function handleRestore(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        if (!confirm('Tem certeza que deseja restaurar o banco de dados? Todos os dados atuais serão substituídos pelo backup.')) {
+            e.target.value = '';
+            return;
+        }
+        setRestoreLoading(true);
+        try {
+            const buffer = await file.arrayBuffer();
+            const resp = await fetch('http://localhost:3001/api/restore', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/octet-stream' },
+                body: buffer,
+            });
+            const data = await resp.json();
+            if (!resp.ok) throw new Error(data.error || 'Erro ao restaurar');
+            const summary = data.tables.map(t => `${t.table}: ${t.rows} registros`).join('\n');
+            alert('Banco restaurado com sucesso!\n\n' + summary);
+            // Reload tables list and current table
+            await fetchTables();
+            if (selectedTable) fetchTable(selectedTable);
+        } catch (err) {
+            alert('Erro na restauração: ' + err.message);
+        }
+        e.target.value = '';
+        setRestoreLoading(false);
+    }
 
     // Close dropdown on click outside
     useEffect(() => {
@@ -196,6 +251,17 @@ export default function DatabasePage() {
                 <div className="page-header-left">
                     <h2>🗄️ Banco de Dados</h2>
                     <p>Visualize e gerencie todos os dados do sistema</p>
+                </div>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                    <button className="btn btn-primary" onClick={handleBackup} disabled={backupLoading}
+                        style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        {backupLoading ? '⏳ Gerando...' : '💾 Backup BD'}
+                    </button>
+                    <button className="btn btn-secondary" onClick={() => restoreInputRef.current?.click()} disabled={restoreLoading}
+                        style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        {restoreLoading ? '⏳ Restaurando...' : '📂 Restaurar BD'}
+                    </button>
+                    <input ref={restoreInputRef} type="file" accept=".zip" style={{ display: 'none' }} onChange={handleRestore} />
                 </div>
             </div>
 

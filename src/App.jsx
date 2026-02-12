@@ -10,8 +10,9 @@ import ResumoPage from './pages/ResumoPage';
 import RomaneioPage from './pages/RomaneioPage';
 import PedidosPage from './pages/PedidosPage';
 import RegrasTributariasPage from './pages/RegrasTributariasPage';
-import ProducaoPage from './pages/ProducaoPage';
+import ReceitasPage from './pages/ReceitasPage';
 import PrecoPage from './pages/PrecoPage';
+import CustosPage from './pages/CustosPage';
 import TabelasPrecosPage from './pages/TabelasPrecosPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
@@ -50,8 +51,9 @@ export default function App() {
                         <Route path="/" element={<HomePage />} />
 
                         {/* Gerador de Preço — CEO, administrador */}
+                        <Route path="/receitas" element={<RoleRoute roles={['DEV', 'administrador']}><ReceitasPage /></RoleRoute>} />
                         <Route path="/regras-tributarias" element={<RoleRoute roles={['DEV', 'administrador']}><RegrasTributariasPage /></RoleRoute>} />
-                        <Route path="/producao" element={<RoleRoute roles={['DEV', 'administrador']}><ProducaoPage /></RoleRoute>} />
+                        <Route path="/custos" element={<RoleRoute roles={['DEV', 'administrador']}><CustosPage /></RoleRoute>} />
                         <Route path="/preco" element={<RoleRoute roles={['DEV', 'administrador']}><PrecoPage /></RoleRoute>} />
                         <Route path="/tabelas-precos" element={<RoleRoute roles={['DEV', 'administrador']}><TabelasPrecosPage /></RoleRoute>} />
 

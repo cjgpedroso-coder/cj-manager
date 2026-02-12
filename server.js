@@ -88,7 +88,63 @@ db.exec(`
     saida INTEGER DEFAULT 0,
     createdAt TEXT
   );
+
+  CREATE TABLE IF NOT EXISTS recipes (
+    id TEXT PRIMARY KEY,
+    productId TEXT NOT NULL,
+    qtyGeralMes REAL DEFAULT 0,
+    qtyProdutoMes REAL DEFAULT 0,
+    producaoReceita REAL DEFAULT 0,
+    createdAt TEXT,
+    updatedAt TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS recipe_ingredients (
+    id TEXT PRIMARY KEY,
+    recipeId TEXT NOT NULL,
+    rawMaterialId TEXT NOT NULL,
+    quantidade REAL DEFAULT 0,
+    precoKg REAL DEFAULT 0,
+    qtyGeral REAL DEFAULT 0,
+    qtyProduto REAL DEFAULT 0,
+    createdAt TEXT
+  );
 `);
+
+// Migration: add producaoReceita column if missing
+try { db.exec('ALTER TABLE recipes ADD COLUMN producaoReceita REAL DEFAULT 0'); } catch (e) { /* column already exists */ }
+
+// Migration: add tax columns to products
+const productTaxCols = [
+    'compraPreco REAL DEFAULT 0',
+    'compraIcms REAL DEFAULT 0',
+    'vendaIcms REAL DEFAULT 0',
+    'vendaPis REAL DEFAULT 0',
+    'vendaCofins REAL DEFAULT 0',
+    'vendaIr REAL DEFAULT 0',
+    'vendaCs REAL DEFAULT 0',
+    'vendaIbs REAL DEFAULT 0',
+    'vendaCbs REAL DEFAULT 0',
+];
+for (const col of productTaxCols) {
+    try { db.exec(`ALTER TABLE products ADD COLUMN ${col}`); } catch (e) { /* already exists */ }
+}
+
+// Migration: add tax columns to raw_materials
+const rawMatTaxCols = [
+    'compraPreco REAL DEFAULT 0',
+    'compraIcms REAL DEFAULT 0',
+    'vendaIcms REAL DEFAULT 0',
+    'vendaPis REAL DEFAULT 0',
+    'vendaCofins REAL DEFAULT 0',
+    'vendaIr REAL DEFAULT 0',
+    'vendaCs REAL DEFAULT 0',
+    'vendaIbs REAL DEFAULT 0',
+    'vendaCbs REAL DEFAULT 0',
+];
+for (const col of rawMatTaxCols) {
+    try { db.exec(`ALTER TABLE raw_materials ADD COLUMN ${col}`); } catch (e) { /* already exists */ }
+}
 
 // Seed default admin user
 const existingAdmin = db.prepare('SELECT * FROM users WHERE username = ?').get('caio');
@@ -271,6 +327,24 @@ app.put('/api/products/:id', (req, res) => {
 
 app.delete('/api/products/:id', (req, res) => {
     db.prepare('DELETE FROM products WHERE id = ?').run(req.params.id);
+    res.json({ success: true });
+});
+
+// ── Tax fields update (used by Regras Tributárias) ──────────
+
+app.put('/api/tax/:table/:id', (req, res) => {
+    const validTables = ['products', 'raw_materials'];
+    const table = req.params.table;
+    if (!validTables.includes(table)) return res.status(400).json({ error: 'Invalid table' });
+
+    const { compraPreco, compraIcms, vendaIcms, vendaPis, vendaCofins, vendaIr, vendaCs, vendaIbs, vendaCbs } = req.body;
+    db.prepare(`UPDATE "${table}" SET compraPreco=?, compraIcms=?, vendaIcms=?, vendaPis=?, vendaCofins=?, vendaIr=?, vendaCs=?, vendaIbs=?, vendaCbs=?, updatedAt=? WHERE id=?`)
+        .run(
+            Number(compraPreco) || 0, Number(compraIcms) || 0,
+            Number(vendaIcms) || 0, Number(vendaPis) || 0, Number(vendaCofins) || 0,
+            Number(vendaIr) || 0, Number(vendaCs) || 0, Number(vendaIbs) || 0, Number(vendaCbs) || 0,
+            new Date().toISOString(), req.params.id
+        );
     res.json({ success: true });
 });
 
@@ -509,6 +583,76 @@ app.delete('/api/raw-material-movements/:id', (req, res) => {
         }
         db.prepare('DELETE FROM raw_material_movements WHERE id = ?').run(req.params.id);
     }
+    res.json({ success: true });
+});
+
+// ── Recipes ──────────────────────────────────────────────────
+
+app.get('/api/recipes', (req, res) => {
+    const recipes = db.prepare(`
+        SELECT r.*, p.name as productName
+        FROM recipes r
+        LEFT JOIN products p ON r.productId = p.id
+        ORDER BY p.name
+    `).all();
+    res.json(recipes);
+});
+
+app.post('/api/recipes', (req, res) => {
+    const { productId, qtyGeralMes, qtyProdutoMes, producaoReceita } = req.body;
+    const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    db.prepare(`INSERT INTO recipes (id, productId, qtyGeralMes, qtyProdutoMes, producaoReceita, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?)`)
+        .run(id, productId, qtyGeralMes || 0, qtyProdutoMes || 0, producaoReceita || 0, new Date().toISOString(), new Date().toISOString());
+    const recipe = db.prepare(`SELECT r.*, p.name as productName FROM recipes r LEFT JOIN products p ON r.productId = p.id WHERE r.id = ?`).get(id);
+    res.json(recipe);
+});
+
+app.put('/api/recipes/:id', (req, res) => {
+    const { productId, qtyGeralMes, qtyProdutoMes, producaoReceita } = req.body;
+    db.prepare(`UPDATE recipes SET productId = ?, qtyGeralMes = ?, qtyProdutoMes = ?, producaoReceita = ?, updatedAt = ? WHERE id = ?`)
+        .run(productId, qtyGeralMes || 0, qtyProdutoMes || 0, producaoReceita || 0, new Date().toISOString(), req.params.id);
+    const recipe = db.prepare(`SELECT r.*, p.name as productName FROM recipes r LEFT JOIN products p ON r.productId = p.id WHERE r.id = ?`).get(req.params.id);
+    res.json(recipe);
+});
+
+app.delete('/api/recipes/:id', (req, res) => {
+    db.prepare('DELETE FROM recipe_ingredients WHERE recipeId = ?').run(req.params.id);
+    db.prepare('DELETE FROM recipes WHERE id = ?').run(req.params.id);
+    res.json({ success: true });
+});
+
+// ── Recipe Ingredients ───────────────────────────────────────
+
+app.get('/api/recipes/:id/ingredients', (req, res) => {
+    const items = db.prepare(`
+        SELECT ri.*, rm.name as rawMaterialName
+        FROM recipe_ingredients ri
+        LEFT JOIN raw_materials rm ON ri.rawMaterialId = rm.id
+        WHERE ri.recipeId = ?
+        ORDER BY rm.name
+    `).all(req.params.id);
+    res.json(items);
+});
+
+app.post('/api/recipes/:id/ingredients', (req, res) => {
+    const { rawMaterialId, quantidade, precoKg, qtyGeral, qtyProduto } = req.body;
+    const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    db.prepare(`INSERT INTO recipe_ingredients (id, recipeId, rawMaterialId, quantidade, precoKg, qtyGeral, qtyProduto, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+        .run(id, req.params.id, rawMaterialId, quantidade || 0, precoKg || 0, qtyGeral || 0, qtyProduto || 0, new Date().toISOString());
+    const item = db.prepare(`SELECT ri.*, rm.name as rawMaterialName FROM recipe_ingredients ri LEFT JOIN raw_materials rm ON ri.rawMaterialId = rm.id WHERE ri.id = ?`).get(id);
+    res.json(item);
+});
+
+app.put('/api/recipe-ingredients/:id', (req, res) => {
+    const { rawMaterialId, quantidade, precoKg, qtyGeral, qtyProduto } = req.body;
+    db.prepare(`UPDATE recipe_ingredients SET rawMaterialId = ?, quantidade = ?, precoKg = ?, qtyGeral = ?, qtyProduto = ? WHERE id = ?`)
+        .run(rawMaterialId, quantidade || 0, precoKg || 0, qtyGeral || 0, qtyProduto || 0, req.params.id);
+    const item = db.prepare(`SELECT ri.*, rm.name as rawMaterialName FROM recipe_ingredients ri LEFT JOIN raw_materials rm ON ri.rawMaterialId = rm.id WHERE ri.id = ?`).get(req.params.id);
+    res.json(item);
+});
+
+app.delete('/api/recipe-ingredients/:id', (req, res) => {
+    db.prepare('DELETE FROM recipe_ingredients WHERE id = ?').run(req.params.id);
     res.json({ success: true });
 });
 

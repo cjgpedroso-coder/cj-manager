@@ -119,6 +119,9 @@ export default function Layout() {
         if (location.pathname.startsWith('/produtos') || location.pathname.startsWith('/movimentacoes') || location.pathname.startsWith('/producao-estoque') || location.pathname.startsWith('/resumo')) {
             setEstoqueOpen(true);
         }
+        if (location.pathname.startsWith('/receitas') || location.pathname.startsWith('/regras-tributarias') || location.pathname.startsWith('/custos') || location.pathname.startsWith('/preco') || location.pathname.startsWith('/tabelas-precos')) {
+            setGeradorOpen(true);
+        }
         if (location.pathname.startsWith('/romaneio') || location.pathname.startsWith('/pedidos')) {
             setLogisticoOpen(true);
         }
@@ -159,10 +162,11 @@ export default function Layout() {
     // Get current page title
     function getPageTitle() {
         if (location.pathname === '/') return 'Início';
+        if (location.pathname.startsWith('/receitas')) return 'Receitas';
         if (location.pathname.startsWith('/regras-tributarias')) return 'Regras Tributárias';
         if (location.pathname.startsWith('/producao-estoque')) return 'Produção';
         if (location.pathname.startsWith('/resumo')) return 'Resumo';
-        if (location.pathname.startsWith('/producao')) return 'Produção';
+        if (location.pathname.startsWith('/custos')) return 'Custos';
         if (location.pathname.startsWith('/preco')) return 'Preço';
         if (location.pathname.startsWith('/tabelas-precos')) return 'Tabelas de Preço';
         if (location.pathname.startsWith('/produtos')) return 'Produtos';
@@ -292,6 +296,15 @@ export default function Layout() {
 
                                 <div className={`cj-submenu ${geradorOpen ? 'open' : ''}`}>
                                     <NavLink
+                                        to="/receitas"
+                                        onClick={() => setSidebarOpen(false)}
+                                        className="cj-menu-item cj-submenu-item"
+                                        style={geradorOpen ? { opacity: 1 } : { opacity: 0, animation: 'none' }}
+                                    >
+                                        <span className="cj-menu-icon"><ProducaoIcon /></span>
+                                        <span className="cj-menu-label">Receitas</span>
+                                    </NavLink>
+                                    <NavLink
                                         to="/regras-tributarias"
                                         onClick={() => setSidebarOpen(false)}
                                         className="cj-menu-item cj-submenu-item"
@@ -301,13 +314,13 @@ export default function Layout() {
                                         <span className="cj-menu-label">Regras Tributárias</span>
                                     </NavLink>
                                     <NavLink
-                                        to="/producao"
+                                        to="/custos"
                                         onClick={() => setSidebarOpen(false)}
                                         className="cj-menu-item cj-submenu-item"
                                         style={geradorOpen ? { opacity: 1 } : { opacity: 0, animation: 'none' }}
                                     >
-                                        <span className="cj-menu-icon"><ProducaoIcon /></span>
-                                        <span className="cj-menu-label">Produção</span>
+                                        <span className="cj-menu-icon"><PrecoIcon /></span>
+                                        <span className="cj-menu-label">Custos</span>
                                     </NavLink>
                                     <NavLink
                                         to="/preco"

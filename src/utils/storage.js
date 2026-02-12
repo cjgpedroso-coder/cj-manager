@@ -166,3 +166,61 @@ export async function updateRawMaterialMovement(id, movement) {
 export async function deleteRawMaterialMovement(id) {
   await fetch(`${API}/raw-material-movements/${id}`, { method: 'DELETE' });
 }
+
+// ── Recipes ─────────────────────────────────────────────────
+
+export async function getRecipes() {
+  const res = await fetch(`${API}/recipes`);
+  return res.json();
+}
+
+export async function saveRecipe(recipe) {
+  if (recipe.id) {
+    const res = await fetch(`${API}/recipes/${recipe.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(recipe),
+    });
+    return res.json();
+  } else {
+    const res = await fetch(`${API}/recipes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(recipe),
+    });
+    return res.json();
+  }
+}
+
+export async function deleteRecipe(id) {
+  await fetch(`${API}/recipes/${id}`, { method: 'DELETE' });
+}
+
+// ── Recipe Ingredients ──────────────────────────────────────
+
+export async function getRecipeIngredients(recipeId) {
+  const res = await fetch(`${API}/recipes/${recipeId}/ingredients`);
+  return res.json();
+}
+
+export async function saveRecipeIngredient(recipeId, ingredient) {
+  const res = await fetch(`${API}/recipes/${recipeId}/ingredients`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(ingredient),
+  });
+  return res.json();
+}
+
+export async function updateRecipeIngredient(id, ingredient) {
+  const res = await fetch(`${API}/recipe-ingredients/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(ingredient),
+  });
+  return res.json();
+}
+
+export async function deleteRecipeIngredient(id) {
+  await fetch(`${API}/recipe-ingredients/${id}`, { method: 'DELETE' });
+}

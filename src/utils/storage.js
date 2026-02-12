@@ -224,3 +224,43 @@ export async function updateRecipeIngredient(id, ingredient) {
 export async function deleteRecipeIngredient(id) {
   await fetch(`${API}/recipe-ingredients/${id}`, { method: 'DELETE' });
 }
+
+// ── Costs ────────────────────────────────────────────────────
+
+export async function getCosts() {
+  const res = await fetch(`${API}/costs`);
+  return res.json();
+}
+
+export async function saveCost(cost) {
+  if (cost.id) {
+    const res = await fetch(`${API}/costs/${cost.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(cost),
+    });
+    return res.json();
+  } else {
+    const res = await fetch(`${API}/costs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(cost),
+    });
+    return res.json();
+  }
+}
+
+export async function deleteCost(id) {
+  await fetch(`${API}/costs/${id}`, { method: 'DELETE' });
+}
+
+// ── Product vendasMes ────────────────────────────────────────
+
+export async function updateVendasMes(productId, vendasMes) {
+  const res = await fetch(`${API}/products/${productId}/vendas-mes`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ vendasMes }),
+  });
+  return res.json();
+}

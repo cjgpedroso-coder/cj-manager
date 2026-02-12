@@ -17,6 +17,7 @@ export default function ReceitasPage() {
     const [rawMaterials, setRawMaterials] = useState([]);
     const [expanded, setExpanded] = useState({}); // recipeId -> ingredients[]
     const [loading, setLoading] = useState({});   // recipeId -> bool
+    const [allIngredients, setAllIngredients] = useState({}); // recipeId -> ingredients[] (preloaded for totals)
 
     // Modal state
     const [showModal, setShowModal] = useState(false);
@@ -36,6 +37,12 @@ export default function ReceitasPage() {
         setRecipes(r);
         setProducts(p);
         setRawMaterials(rm);
+        // Preload all ingredients for card totals
+        const ingMap = {};
+        await Promise.all(r.map(async (rec) => {
+            ingMap[rec.id] = await getRecipeIngredients(rec.id);
+        }));
+        setAllIngredients(ingMap);
     }, []);
 
     useEffect(() => { refresh(); }, [refresh]);
@@ -103,6 +110,7 @@ export default function ReceitasPage() {
         setLoading(prev => ({ ...prev, [recipeId]: true }));
         const ingredients = await getRecipeIngredients(recipeId);
         setExpanded(prev => ({ ...prev, [recipeId]: ingredients }));
+        setAllIngredients(prev => ({ ...prev, [recipeId]: ingredients }));
         setLoading(prev => ({ ...prev, [recipeId]: false }));
     }
 
@@ -160,6 +168,7 @@ export default function ReceitasPage() {
         // Refresh ingredients for this recipe
         const ingredients = await getRecipeIngredients(recipeId);
         setExpanded(prev => ({ ...prev, [recipeId]: ingredients }));
+        setAllIngredients(prev => ({ ...prev, [recipeId]: ingredients }));
         setIngredientForm(prev => { const n = { ...prev }; delete n[recipeId]; return n; });
     }
 
@@ -167,6 +176,7 @@ export default function ReceitasPage() {
         await deleteRecipeIngredient(ingredientId);
         const ingredients = await getRecipeIngredients(recipeId);
         setExpanded(prev => ({ ...prev, [recipeId]: ingredients }));
+        setAllIngredients(prev => ({ ...prev, [recipeId]: ingredients }));
     }
 
     // ── Render ────────────────────────────────────────────────
@@ -202,10 +212,12 @@ export default function ReceitasPage() {
                                     <h4 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
                                         {recipe.productName || 'Produto removido'}
                                     </h4>
-                                    <div style={{ display: 'flex', gap: '24px', marginTop: '6px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+                                    <div style={{ display: 'flex', gap: '24px', marginTop: '6px', fontSize: '13px', color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
                                         <span>Qtd Produção/mês Geral: <strong style={{ color: 'var(--text-primary)' }}>{recipe.qtyGeralMes}</strong></span>
                                         <span>Qtd Produção/mês Produto: <strong style={{ color: 'var(--text-primary)' }}>{recipe.qtyProdutoMes}</strong></span>
                                         <span>Produção por receita: <strong style={{ color: 'var(--text-primary)' }}>{recipe.producaoReceita}</strong></span>
+                                        <span>Total Receita (R$): <strong style={{ color: '#059669' }}>R$ {(allIngredients[recipe.id] || []).reduce((s, i) => s + (Number(i.quantidade) || 0) * (Number(i.precoKg) || 0), 0).toFixed(2)}</strong></span>
+                                        <span>Crédito ICMS (R$): <strong style={{ color: '#2563eb' }}>R$ {(allIngredients[recipe.id] || []).reduce((s, i) => { const t = (Number(i.quantidade) || 0) * (Number(i.precoKg) || 0); const rm = rawMaterials.find(r => r.id === i.rawMaterialId); return s + ((Number(rm?.compraIcms) || 0) * t) / 100; }, 0).toFixed(2)}</strong></span>
                                     </div>
                                 </div>
                                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -242,46 +254,72 @@ export default function ReceitasPage() {
                                                 <th style={thStyle}>Matéria Prima</th>
                                                 <th style={thStyle}>Quantidade M.P.</th>
                                                 <th style={thStyle}>R$/kg</th>
+                                                <th style={thStyle}>Total (R$)</th>
+                                                <th style={thStyle}>KG</th>
+                                                <th style={thStyle}>%</th>
+                                                <th style={thStyle}>Créd. ICMS(%)</th>
+                                                <th style={thStyle}>Créd. ICMS(R$)</th>
                                                 <th style={{ ...thStyle, width: '90px' }}>Ações</th>
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {expanded[recipe.id].map(ing => (
-                                                editingIngredient?.id === ing.id ? (
-                                                    <tr key={ing.id} style={{ background: '#fefce8' }}>
-                                                        <td style={tdStyle}>
-                                                            <select className="form-select" style={{ fontSize: '13px' }} value={getIngForm(recipe.id).rawMaterialId} onChange={e => setIngField(recipe.id, 'rawMaterialId', e.target.value)}>
-                                                                <option value="">Selecione...</option>
-                                                                {rawMaterials.map(rm => <option key={rm.id} value={rm.id}>{rm.name}</option>)}
-                                                            </select>
-                                                        </td>
-                                                        <td style={tdStyle}><input className="form-input" style={inpStyle} type="number" value={getIngForm(recipe.id).quantidade} onChange={e => setIngField(recipe.id, 'quantidade', e.target.value)} /></td>
-                                                        <td style={tdStyle}><input className="form-input" style={inpStyle} type="number" step="0.01" value={getIngForm(recipe.id).precoKg} onChange={e => setIngField(recipe.id, 'precoKg', e.target.value)} /></td>
-                                                        <td style={tdStyle}>
-                                                            <div style={{ display: 'flex', gap: '4px' }}>
-                                                                <button className="btn btn-primary" style={{ padding: '4px 10px', fontSize: '12px' }} onClick={() => handleSaveIngredient(recipe.id)}>Salvar</button>
-                                                                <button className="btn btn-secondary" style={{ padding: '4px 8px', fontSize: '12px' }} onClick={() => cancelEditIngredient(recipe.id)}>X</button>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                ) : (
-                                                    <tr key={ing.id} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                                                        <td style={tdStyle}>{ing.rawMaterialName || '—'}</td>
-                                                        <td style={tdStyleNum}>{ing.quantidade}</td>
-                                                        <td style={tdStyleNum}>{Number(ing.precoKg).toFixed(2)}</td>
-                                                        <td style={tdStyle}>
-                                                            <div style={{ display: 'flex', gap: '6px' }}>
-                                                                <button className="btn-icon" title="Editar" onClick={() => startEditIngredient(ing)}>
-                                                                    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                                                                </button>
-                                                                <button className="btn-icon" title="Excluir" style={{ color: 'var(--accent-danger)' }} onClick={() => handleDeleteIngredient(recipe.id, ing.id)}>
-                                                                    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                                                </button>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                )
-                                            ))}
+                                            {(() => {
+                                                const ings = expanded[recipe.id];
+                                                const producao = Number(recipe.producaoReceita) || 1;
+                                                const totalKgReceita = ings.reduce((s, i) => s + ((Number(i.quantidade) || 0) / producao), 0);
+                                                return ings.map(ing => {
+                                                    const totalRS = (Number(ing.quantidade) || 0) * (Number(ing.precoKg) || 0);
+                                                    const kg = (Number(ing.quantidade) || 0) / producao;
+                                                    const pct = totalKgReceita > 0 ? (kg * 100) / totalKgReceita : 0;
+                                                    const rm = rawMaterials.find(r => r.id === ing.rawMaterialId);
+                                                    const icmsPct = Number(rm?.compraIcms) || 0;
+                                                    const icmsRS = (icmsPct * totalRS) / 100;
+                                                    return editingIngredient?.id === ing.id ? (
+                                                        <tr key={ing.id} style={{ background: '#fefce8' }}>
+                                                            <td style={tdStyle}>
+                                                                <select className="form-select" style={{ fontSize: '13px' }} value={getIngForm(recipe.id).rawMaterialId} onChange={e => setIngField(recipe.id, 'rawMaterialId', e.target.value)}>
+                                                                    <option value="">Selecione...</option>
+                                                                    {rawMaterials.map(rm => <option key={rm.id} value={rm.id}>{rm.name}</option>)}
+                                                                </select>
+                                                            </td>
+                                                            <td style={tdStyle}><input className="form-input" style={inpStyle} type="number" value={getIngForm(recipe.id).quantidade} onChange={e => setIngField(recipe.id, 'quantidade', e.target.value)} /></td>
+                                                            <td style={tdStyle}><input className="form-input" style={inpStyle} type="number" step="0.01" value={getIngForm(recipe.id).precoKg} onChange={e => setIngField(recipe.id, 'precoKg', e.target.value)} /></td>
+                                                            <td style={tdStyleNum}>R$ {totalRS.toFixed(2)}</td>
+                                                            <td style={tdStyleNum}>{kg.toFixed(4)}</td>
+                                                            <td style={tdStyleNum}>{pct.toFixed(2)}%</td>
+                                                            <td style={tdStyleNum}>{icmsPct.toFixed(2)}%</td>
+                                                            <td style={tdStyleNum}>R$ {icmsRS.toFixed(2)}</td>
+                                                            <td style={tdStyle}>
+                                                                <div style={{ display: 'flex', gap: '4px' }}>
+                                                                    <button className="btn btn-primary" style={{ padding: '4px 10px', fontSize: '12px' }} onClick={() => handleSaveIngredient(recipe.id)}>Salvar</button>
+                                                                    <button className="btn btn-secondary" style={{ padding: '4px 8px', fontSize: '12px' }} onClick={() => cancelEditIngredient(recipe.id)}>X</button>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    ) : (
+                                                        <tr key={ing.id} style={{ borderBottom: '1px solid #f0f0f0' }}>
+                                                            <td style={tdStyle}>{ing.rawMaterialName || '—'}</td>
+                                                            <td style={tdStyleNum}>{ing.quantidade}</td>
+                                                            <td style={tdStyleNum}>{Number(ing.precoKg).toFixed(2)}</td>
+                                                            <td style={tdStyleNum}>R$ {totalRS.toFixed(2)}</td>
+                                                            <td style={tdStyleNum}>{kg.toFixed(4)}</td>
+                                                            <td style={tdStyleNum}>{pct.toFixed(2)}%</td>
+                                                            <td style={tdStyleNum}>{icmsPct.toFixed(2)}%</td>
+                                                            <td style={tdStyleNum}>R$ {icmsRS.toFixed(2)}</td>
+                                                            <td style={tdStyle}>
+                                                                <div style={{ display: 'flex', gap: '6px' }}>
+                                                                    <button className="btn-icon" title="Editar" onClick={() => startEditIngredient(ing)}>
+                                                                        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                                                    </button>
+                                                                    <button className="btn-icon" title="Excluir" style={{ color: 'var(--accent-danger)' }} onClick={() => handleDeleteIngredient(recipe.id, ing.id)}>
+                                                                        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                                                    </button>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                });
+                                            })()}
                                             {/* Add ingredient row */}
                                             {!editingIngredient && (
                                                 <tr style={{ background: '#f8fafc' }}>
@@ -293,6 +331,11 @@ export default function ReceitasPage() {
                                                     </td>
                                                     <td style={tdStyle}><input className="form-input" style={inpStyle} type="number" placeholder="0" value={getIngForm(recipe.id).quantidade} onChange={e => setIngField(recipe.id, 'quantidade', e.target.value)} /></td>
                                                     <td style={tdStyle}><input className="form-input" style={inpStyle} type="number" step="0.01" placeholder="0.00" value={getIngForm(recipe.id).precoKg} onChange={e => setIngField(recipe.id, 'precoKg', e.target.value)} /></td>
+                                                    <td style={tdStyleNum}></td>
+                                                    <td style={tdStyleNum}></td>
+                                                    <td style={tdStyleNum}></td>
+                                                    <td style={tdStyleNum}></td>
+                                                    <td style={tdStyleNum}></td>
                                                     <td style={tdStyle}>
                                                         <button
                                                             className="btn btn-primary"
@@ -306,6 +349,32 @@ export default function ReceitasPage() {
                                                 </tr>
                                             )}
                                         </tbody>
+                                        <tfoot>
+                                            {(() => {
+                                                const ings = expanded[recipe.id];
+                                                const producao = Number(recipe.producaoReceita) || 1;
+                                                const totalRS = ings.reduce((s, i) => s + (Number(i.quantidade) || 0) * (Number(i.precoKg) || 0), 0);
+                                                const totalKG = ings.reduce((s, i) => s + (Number(i.quantidade) || 0) / producao, 0);
+                                                const totalIcmsRS = ings.reduce((s, i) => {
+                                                    const t = (Number(i.quantidade) || 0) * (Number(i.precoKg) || 0);
+                                                    const rm = rawMaterials.find(r => r.id === i.rawMaterialId);
+                                                    return s + ((Number(rm?.compraIcms) || 0) * t) / 100;
+                                                }, 0);
+                                                return (
+                                                    <tr style={{ borderTop: '2px solid var(--border-color)', fontWeight: 700 }}>
+                                                        <td style={tdStyle}>Total</td>
+                                                        <td style={tdStyleNum}></td>
+                                                        <td style={tdStyleNum}></td>
+                                                        <td style={{ ...tdStyleNum, color: '#059669' }}>R$ {totalRS.toFixed(2)}</td>
+                                                        <td style={{ ...tdStyleNum, color: 'var(--text-primary)' }}>{totalKG.toFixed(4)}</td>
+                                                        <td style={tdStyleNum}>100.00%</td>
+                                                        <td style={tdStyleNum}></td>
+                                                        <td style={{ ...tdStyleNum, color: '#059669' }}>R$ {totalIcmsRS.toFixed(2)}</td>
+                                                        <td style={tdStyle}></td>
+                                                    </tr>
+                                                );
+                                            })()}
+                                        </tfoot>
                                     </table>
                                     {expanded[recipe.id].length === 0 && (
                                         <p style={{ textAlign: 'center', color: 'var(--text-secondary)', fontSize: '13px', marginTop: '12px' }}>
@@ -412,7 +481,7 @@ export default function ReceitasPage() {
 
 const thStyle = {
     padding: '10px 12px',
-    textAlign: 'left',
+    textAlign: 'center',
     fontSize: '12px',
     fontWeight: 600,
     color: 'var(--text-secondary)',
@@ -425,6 +494,7 @@ const tdStyle = {
     fontSize: '13px',
     color: 'var(--text-primary)',
     verticalAlign: 'middle',
+    textAlign: 'center',
 };
 
 const tdStyleNum = {

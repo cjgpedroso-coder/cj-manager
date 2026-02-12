@@ -109,6 +109,26 @@ db.exec(`
     qtyProduto REAL DEFAULT 0,
     createdAt TEXT
   );
+
+  CREATE TABLE IF NOT EXISTS costs (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    type TEXT DEFAULT 'Operacional',
+    mes1 REAL DEFAULT 0,
+    mes2 REAL DEFAULT 0,
+    mes3 REAL DEFAULT 0,
+    valorMedio REAL DEFAULT 0,
+    nomeVeiculo TEXT DEFAULT '',
+    placa TEXT DEFAULT '',
+    kmPorLitro REAL DEFAULT 0,
+    kmRodadoMes REAL DEFAULT 0,
+    seguroMes REAL DEFAULT 0,
+    ipvaLicenciamento REAL DEFAULT 0,
+    manutencaoAnual REAL DEFAULT 0,
+    valorLitro REAL DEFAULT 0,
+    createdAt TEXT,
+    updatedAt TEXT
+  );
 `);
 
 // Migration: add producaoReceita column if missing
@@ -145,6 +165,9 @@ const rawMatTaxCols = [
 for (const col of rawMatTaxCols) {
     try { db.exec(`ALTER TABLE raw_materials ADD COLUMN ${col}`); } catch (e) { /* already exists */ }
 }
+
+// Migration: add vendasMes column to products
+try { db.exec('ALTER TABLE products ADD COLUMN vendasMes REAL DEFAULT 0'); } catch (e) { /* already exists */ }
 
 // Seed default admin user
 const existingAdmin = db.prepare('SELECT * FROM users WHERE username = ?').get('caio');
@@ -727,6 +750,56 @@ app.delete('/api/dev/tables/:name/:id', (req, res) => {
     const pkName = pkCol ? pkCol.name : 'rowid';
 
     db.prepare(`DELETE FROM "${tableName}" WHERE "${pkName}" = ?`).run(req.params.id);
+    res.json({ success: true });
+});
+
+// ── Costs CRUD ───────────────────────────────────────────────
+
+app.get('/api/costs', (req, res) => {
+    const costs = db.prepare('SELECT * FROM costs ORDER BY name').all();
+    res.json(costs);
+});
+
+app.post('/api/costs', (req, res) => {
+    const c = req.body;
+    c.id = generateId();
+    c.createdAt = new Date().toISOString();
+    c.updatedAt = c.createdAt;
+    db.prepare(`INSERT INTO costs (id, name, type, mes1, mes2, mes3, valorMedio, nomeVeiculo, placa, kmPorLitro, kmRodadoMes, seguroMes, ipvaLicenciamento, manutencaoAnual, valorLitro, createdAt, updatedAt)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+        .run(c.id, c.name || '', c.type || 'Operacional',
+            Number(c.mes1) || 0, Number(c.mes2) || 0, Number(c.mes3) || 0, Number(c.valorMedio) || 0,
+            c.nomeVeiculo || '', c.placa || '',
+            Number(c.kmPorLitro) || 0, Number(c.kmRodadoMes) || 0,
+            Number(c.seguroMes) || 0, Number(c.ipvaLicenciamento) || 0, Number(c.manutencaoAnual) || 0,
+            Number(c.valorLitro) || 0,
+            c.createdAt, c.updatedAt);
+    res.json(c);
+});
+
+app.put('/api/costs/:id', (req, res) => {
+    const c = req.body;
+    db.prepare(`UPDATE costs SET name=?, type=?, mes1=?, mes2=?, mes3=?, valorMedio=?, nomeVeiculo=?, placa=?, kmPorLitro=?, kmRodadoMes=?, seguroMes=?, ipvaLicenciamento=?, manutencaoAnual=?, valorLitro=?, updatedAt=? WHERE id=?`)
+        .run(c.name || '', c.type || 'Operacional',
+            Number(c.mes1) || 0, Number(c.mes2) || 0, Number(c.mes3) || 0, Number(c.valorMedio) || 0,
+            c.nomeVeiculo || '', c.placa || '',
+            Number(c.kmPorLitro) || 0, Number(c.kmRodadoMes) || 0,
+            Number(c.seguroMes) || 0, Number(c.ipvaLicenciamento) || 0, Number(c.manutencaoAnual) || 0,
+            Number(c.valorLitro) || 0,
+            new Date().toISOString(), req.params.id);
+    res.json({ success: true });
+});
+
+app.delete('/api/costs/:id', (req, res) => {
+    db.prepare('DELETE FROM costs WHERE id = ?').run(req.params.id);
+    res.json({ success: true });
+});
+
+// Update vendasMes for a product
+app.put('/api/products/:id/vendas-mes', (req, res) => {
+    const { vendasMes } = req.body;
+    db.prepare('UPDATE products SET vendasMes = ?, updatedAt = ? WHERE id = ?')
+        .run(Number(vendasMes) || 0, new Date().toISOString(), req.params.id);
     res.json({ success: true });
 });
 

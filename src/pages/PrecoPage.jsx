@@ -339,183 +339,288 @@ export default function PrecoPage() {
                 </div>
 
                 {/* ══════════ RIGHT SIDE - 50% ══════════ */}
-                {!selectedProduct ? (
-                    <div style={{ flex: 1, minWidth: '380px' }}>
-                        <div className="card" style={{ padding: '40px 20px', textAlign: 'center' }}>
-                            <div style={{ fontSize: '40px', opacity: 0.3, marginBottom: '12px' }}>📦</div>
-                            <h4 style={{ color: 'var(--text-primary)', marginBottom: '6px' }}>Selecione um Produto</h4>
-                            <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Escolha um produto ao lado para visualizar os custos e gerar o preço.</p>
-                        </div>
-                    </div>
-                ) : (
-                    <div style={{ flex: 1, minWidth: '380px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ flex: 1, minWidth: '380px', maxHeight: '80vh', background: 'var(--bg-secondary)', borderRadius: '12px', border: '1px solid var(--border-color)', padding: '24px 16px', display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ flex: 1, overflowY: 'auto', paddingRight: '4px' }}>
+                        {!selectedProduct ? (
+                            <div style={{ padding: '24px 4px', textAlign: 'center' }}>
+                                <div style={{ fontSize: '40px', opacity: 0.3, marginBottom: '12px' }}>📦</div>
+                                <h4 style={{ color: 'var(--text-primary)', marginBottom: '6px' }}>Selecione um Produto</h4>
+                                <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Escolha um produto ao lado para visualizar os custos e gerar o preço.</p>
+                            </div>
+                        ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
-                        {/* Cost tables row */}
-                        <div style={{ display: 'flex', gap: '16px', alignItems: 'stretch' }}>
+                                {/* Cost tables row */}
+                                <div style={{ display: 'flex', gap: '16px', alignItems: 'stretch' }}>
 
-                            {/* ── Custos Operacionais ── */}
-                            {(() => {
-                                const operacionais = costs.filter(c => c.type === 'Operacional');
-                                const totalOp = operacionais.reduce((s, c) => s + (Number(c.valorMedio) || 0), 0);
-                                const isTercerizado = selectedProduct?.category === 'Tercerizado';
-                                return (
-                                    <div className={isTercerizado ? '' : 'card'} style={{
-                                        padding: '16px 18px', flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column',
-                                        ...(isTercerizado ? {
-                                            opacity: 0.45, filter: 'grayscale(100%)', pointerEvents: 'none',
-                                            background: 'var(--bg-secondary)', borderRadius: '12px',
-                                            border: '1px dashed var(--border-color)',
-                                        } : {}),
-                                    }}>
-                                        <h4 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                                            Custos Operacionais
-                                        </h4>
-                                        {operacionais.length === 0 ? (
-                                            <p style={{ color: 'var(--text-secondary)', fontSize: '13px', fontStyle: 'italic' }}>Nenhum custo operacional cadastrado.</p>
-                                        ) : (
-                                            <div style={{ overflowX: 'auto', flex: 1 }}>
+                                    {/* ── Custos Operacionais ── */}
+                                    {(() => {
+                                        const operacionais = costs.filter(c => c.type === 'Operacional');
+                                        const totalOp = operacionais.reduce((s, c) => s + (Number(c.valorMedio) || 0), 0);
+                                        const isTercerizado = selectedProduct?.category === 'Tercerizado';
+                                        return (
+                                            <div className={isTercerizado ? '' : 'card'} style={{
+                                                padding: '16px 18px', flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column',
+                                                ...(isTercerizado ? {
+                                                    opacity: 0.45, filter: 'grayscale(100%)', pointerEvents: 'none',
+                                                    background: 'var(--bg-secondary)', borderRadius: '12px',
+                                                    border: '1px dashed var(--border-color)',
+                                                } : {}),
+                                            }}>
+                                                <h4 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                                    Custos Operacionais
+                                                </h4>
+                                                {operacionais.length === 0 ? (
+                                                    <p style={{ color: 'var(--text-secondary)', fontSize: '13px', fontStyle: 'italic' }}>Nenhum custo operacional cadastrado.</p>
+                                                ) : (
+                                                    <div style={{ overflowX: 'auto', flex: 1 }}>
+                                                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                                            <thead>
+                                                                <tr style={{ borderBottom: '2px solid var(--border-color)' }}>
+                                                                    <th style={thRight}>Nome</th>
+                                                                    <th style={{ ...thRight, textAlign: 'right' }}>Valor Médio (R$)</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                {operacionais.map(c => (
+                                                                    <tr key={c.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                                                                        <td style={tdRight}>{c.name}</td>
+                                                                        <td style={{ ...tdRight, textAlign: 'right', fontFamily: 'monospace' }}>R$ {(Number(c.valorMedio) || 0).toFixed(2)}</td>
+                                                                    </tr>
+                                                                ))}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                )}
+                                                <div style={{ marginTop: 'auto', borderTop: '2px solid var(--border-color)', padding: '8px 10px', display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}>
+                                                    <span style={{ fontSize: '13px' }}>Total</span>
+                                                    <span style={{ fontFamily: 'monospace', fontSize: '13px', color: isTercerizado ? '#9ca3af' : '#059669', textDecoration: isTercerizado ? 'line-through' : 'none' }}>R$ {totalOp.toFixed(2)}</span>
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
+
+                                    {/* ── Custos Gerais ── */}
+                                    {(() => {
+                                        const gerais = costs.filter(c => c.type !== 'Operacional');
+                                        const totalGerais = gerais.reduce((s, c) => s + (Number(c.valorMedio) || 0), 0);
+                                        return (
+                                            <div className="card" style={{ padding: '16px 18px', flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                                                <h4 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                                    Custos Gerais
+                                                </h4>
+                                                {gerais.length === 0 ? (
+                                                    <p style={{ color: 'var(--text-secondary)', fontSize: '13px', fontStyle: 'italic' }}>Nenhum custo geral cadastrado.</p>
+                                                ) : (
+                                                    <div style={{ overflowX: 'auto', flex: 1 }}>
+                                                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                                            <thead>
+                                                                <tr style={{ borderBottom: '2px solid var(--border-color)' }}>
+                                                                    <th style={thRight}>Nome</th>
+                                                                    <th style={{ ...thRight, textAlign: 'right' }}>Valor Médio (R$)</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                {gerais.map(c => (
+                                                                    <tr key={c.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                                                                        <td style={tdRight}>{c.name}</td>
+                                                                        <td style={{ ...tdRight, textAlign: 'right', fontFamily: 'monospace' }}>R$ {(Number(c.valorMedio) || 0).toFixed(2)}</td>
+                                                                    </tr>
+                                                                ))}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                )}
+                                                <div style={{ marginTop: 'auto', borderTop: '2px solid var(--border-color)', padding: '8px 10px', display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}>
+                                                    <span style={{ fontSize: '13px' }}>Total</span>
+                                                    <span style={{ fontFamily: 'monospace', fontSize: '13px', color: '#059669' }}>R$ {totalGerais.toFixed(2)}</span>
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
+
+                                </div>
+
+                                {/* ── Custos Absorvidos ── */}
+                                {(() => {
+                                    const totalCustoOperacional = costs.filter(c => c.type === 'Operacional').reduce((s, c) => s + (Number(c.valorMedio) || 0), 0);
+                                    const totalCustoGeral = costs.filter(c => c.type !== 'Operacional').reduce((s, c) => s + (Number(c.valorMedio) || 0), 0);
+                                    const totalVendas = products.reduce((s, p) => s + (Number(p.vendasMes) || 0), 0);
+                                    const rateio = totalVendas > 0 ? ((Number(selectedProduct.vendasMes) || 0) * 100) / totalVendas : 0;
+                                    const custoGeralAbsorvido = (totalCustoGeral * rateio) / 100;
+
+                                    const isProd = selectedProduct?.category === 'Produção';
+                                    const recipe = isProd ? recipes.find(r => r.productId === selectedProduct.id) : null;
+                                    const qtyProdutoMes = Number(recipe?.qtyProdutoMes) || 0;
+                                    const qtyGeralMes = Number(recipe?.qtyGeralMes) || 0;
+                                    const proporcaoProd = qtyGeralMes > 0 ? (qtyProdutoMes * 100) / qtyGeralMes : 0;
+                                    const custoOpAbsorvido = isProd ? (totalCustoOperacional * proporcaoProd) / 100 : 0;
+
+                                    const rows = [];
+                                    if (isProd) {
+                                        rows.push({ label: 'Custos Operacionais', value: custoOpAbsorvido });
+                                    }
+                                    rows.push({ label: 'Custos Gerais', value: custoGeralAbsorvido });
+                                    const totalAbsorvido = rows.reduce((s, r) => s + r.value, 0);
+
+                                    return (
+                                        <div className="card" style={{ padding: '16px 18px' }}>
+                                            <h4 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                                Custos Absorvidos
+                                            </h4>
+                                            <div style={{ overflowX: 'auto' }}>
                                                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                                                     <thead>
                                                         <tr style={{ borderBottom: '2px solid var(--border-color)' }}>
-                                                            <th style={thRight}>Nome</th>
-                                                            <th style={{ ...thRight, textAlign: 'right' }}>Valor Médio (R$)</th>
+                                                            <th style={thRight}>Tipo</th>
+                                                            <th style={{ ...thRight, textAlign: 'right' }}>Valor Absorvido (R$)</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
-                                                        {operacionais.map(c => (
-                                                            <tr key={c.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                                                                <td style={tdRight}>{c.name}</td>
-                                                                <td style={{ ...tdRight, textAlign: 'right', fontFamily: 'monospace' }}>R$ {(Number(c.valorMedio) || 0).toFixed(2)}</td>
+                                                        {rows.map(r => (
+                                                            <tr key={r.label} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                                                                <td style={tdRight}>{r.label}</td>
+                                                                <td style={{ ...tdRight, textAlign: 'right', fontFamily: 'monospace' }}>R$ {r.value.toFixed(2)}</td>
                                                             </tr>
                                                         ))}
                                                     </tbody>
                                                 </table>
                                             </div>
-                                        )}
-                                        <div style={{ marginTop: 'auto', borderTop: '2px solid var(--border-color)', padding: '8px 10px', display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}>
-                                            <span style={{ fontSize: '13px' }}>Total</span>
-                                            <span style={{ fontFamily: 'monospace', fontSize: '13px', color: isTercerizado ? '#9ca3af' : '#059669', textDecoration: isTercerizado ? 'line-through' : 'none' }}>R$ {totalOp.toFixed(2)}</span>
-                                        </div>
-                                    </div>
-                                );
-                            })()}
-
-                            {/* ── Custos Gerais ── */}
-                            {(() => {
-                                const gerais = costs.filter(c => c.type !== 'Operacional');
-                                const totalGerais = gerais.reduce((s, c) => s + (Number(c.valorMedio) || 0), 0);
-                                return (
-                                    <div className="card" style={{ padding: '16px 18px', flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-                                        <h4 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                                            Custos Gerais
-                                        </h4>
-                                        {gerais.length === 0 ? (
-                                            <p style={{ color: 'var(--text-secondary)', fontSize: '13px', fontStyle: 'italic' }}>Nenhum custo geral cadastrado.</p>
-                                        ) : (
-                                            <div style={{ overflowX: 'auto', flex: 1 }}>
-                                                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                                                    <thead>
-                                                        <tr style={{ borderBottom: '2px solid var(--border-color)' }}>
-                                                            <th style={thRight}>Nome</th>
-                                                            <th style={{ ...thRight, textAlign: 'right' }}>Valor Médio (R$)</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        {gerais.map(c => (
-                                                            <tr key={c.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                                                                <td style={tdRight}>{c.name}</td>
-                                                                <td style={{ ...tdRight, textAlign: 'right', fontFamily: 'monospace' }}>R$ {(Number(c.valorMedio) || 0).toFixed(2)}</td>
-                                                            </tr>
-                                                        ))}
-                                                    </tbody>
-                                                </table>
+                                            <div style={{ marginTop: '0', borderTop: '2px solid var(--border-color)', padding: '8px 10px', display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}>
+                                                <span style={{ fontSize: '13px' }}>Total</span>
+                                                <span style={{ fontFamily: 'monospace', fontSize: '13px', color: '#059669' }}>R$ {totalAbsorvido.toFixed(2)}</span>
                                             </div>
-                                        )}
-                                        <div style={{ marginTop: 'auto', borderTop: '2px solid var(--border-color)', padding: '8px 10px', display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}>
-                                            <span style={{ fontSize: '13px' }}>Total</span>
-                                            <span style={{ fontFamily: 'monospace', fontSize: '13px', color: '#059669' }}>R$ {totalGerais.toFixed(2)}</span>
                                         </div>
-                                    </div>
-                                );
-                            })()}
+                                    );
+                                })()}
 
-                        </div>
-
-                        {/* ── Custos Receita (only for Produção) ── */}
-                        {selectedProduct?.category === 'Produção' && (() => {
-                            const recipe = recipes.find(r => r.productId === selectedProduct.id);
-                            if (!recipe) return (
-                                <div className="card" style={{ padding: '20px 24px' }}>
-                                    <h4 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                                        Custos Receita
-                                    </h4>
-                                    <p style={{ color: 'var(--text-secondary)', fontSize: '13px', fontStyle: 'italic' }}>Nenhuma receita cadastrada para este produto.</p>
-                                </div>
-                            );
-                            const ings = recipeIngredients[recipe.id] || [];
-                            const totalRS = ings.reduce((s, i) => s + (Number(i.quantidade) || 0) * (Number(i.precoKg) || 0), 0);
-                            const totalIcmsRS = ings.reduce((s, i) => {
-                                const t = (Number(i.quantidade) || 0) * (Number(i.precoKg) || 0);
-                                const rm = rawMaterials.find(r => r.id === i.rawMaterialId);
-                                return s + ((Number(rm?.compraIcms) || 0) * t) / 100;
-                            }, 0);
-                            return (
-                                <div className="card" style={{ padding: '16px 18px' }}>
-                                    <h4 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                                        Custos Receita
-                                    </h4>
-                                    {ings.length === 0 ? (
-                                        <p style={{ color: 'var(--text-secondary)', fontSize: '13px', fontStyle: 'italic' }}>Nenhum ingrediente cadastrado na receita.</p>
-                                    ) : (
-                                        <div style={{ overflowX: 'auto' }}>
-                                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                                                <thead>
-                                                    <tr style={{ borderBottom: '2px solid var(--border-color)' }}>
-                                                        <th style={thRight}>Matéria Prima</th>
-                                                        <th style={{ ...thRight, textAlign: 'center' }}>Qtd. M.P.</th>
-                                                        <th style={{ ...thRight, textAlign: 'center' }}>R$/kg</th>
-                                                        <th style={{ ...thRight, textAlign: 'right' }}>Total (R$)</th>
-                                                        <th style={{ ...thRight, textAlign: 'center' }}>Créd. ICMS(%)</th>
-                                                        <th style={{ ...thRight, textAlign: 'right' }}>Créd. ICMS(R$)</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {ings.map(ing => {
-                                                        const ingTotal = (Number(ing.quantidade) || 0) * (Number(ing.precoKg) || 0);
-                                                        const rm = rawMaterials.find(r => r.id === ing.rawMaterialId);
-                                                        const icmsPct = Number(rm?.compraIcms) || 0;
-                                                        const icmsRS = (icmsPct * ingTotal) / 100;
-                                                        return (
-                                                            <tr key={ing.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                                                                <td style={tdRight}>{ing.rawMaterialName || '—'}</td>
-                                                                <td style={{ ...tdRight, textAlign: 'center', fontFamily: 'monospace' }}>{ing.quantidade}</td>
-                                                                <td style={{ ...tdRight, textAlign: 'center', fontFamily: 'monospace' }}>{Number(ing.precoKg).toFixed(2)}</td>
-                                                                <td style={{ ...tdRight, textAlign: 'right', fontFamily: 'monospace' }}>R$ {ingTotal.toFixed(2)}</td>
-                                                                <td style={{ ...tdRight, textAlign: 'center', fontFamily: 'monospace' }}>{icmsPct.toFixed(2)}%</td>
-                                                                <td style={{ ...tdRight, textAlign: 'right', fontFamily: 'monospace' }}>R$ {icmsRS.toFixed(2)}</td>
+                                {/* ── Custos da Receita (only for Produção) ── */}
+                                {selectedProduct?.category === 'Produção' && (() => {
+                                    const recipe = recipes.find(r => r.productId === selectedProduct.id);
+                                    if (!recipe) return (
+                                        <div className="card" style={{ padding: '20px 24px' }}>
+                                            <h4 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                                Custos da Receita
+                                            </h4>
+                                            <p style={{ color: 'var(--text-secondary)', fontSize: '13px', fontStyle: 'italic' }}>Nenhuma receita cadastrada para este produto.</p>
+                                        </div>
+                                    );
+                                    const ings = recipeIngredients[recipe.id] || [];
+                                    const producao = Number(recipe.producaoReceita) || 1;
+                                    const totalRS = ings.reduce((s, i) => s + (Number(i.quantidade) || 0) * (Number(i.precoKg) || 0), 0);
+                                    const totalIcmsRS = ings.reduce((s, i) => {
+                                        const t = (Number(i.quantidade) || 0) * (Number(i.precoKg) || 0);
+                                        const rm = rawMaterials.find(r => r.id === i.rawMaterialId);
+                                        return s + ((Number(rm?.compraIcms) || 0) * t) / 100;
+                                    }, 0);
+                                    const custoUnidade = totalRS / producao;
+                                    const creditoIcmsUnit = totalIcmsRS / producao;
+                                    const custoReal = custoUnidade - creditoIcmsUnit;
+                                    return (
+                                        <div className="card" style={{ padding: '16px 18px' }}>
+                                            <h4 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                                Custos da Receita
+                                            </h4>
+                                            {ings.length === 0 ? (
+                                                <p style={{ color: 'var(--text-secondary)', fontSize: '13px', fontStyle: 'italic' }}>Nenhum ingrediente cadastrado na receita.</p>
+                                            ) : (
+                                                <div style={{ overflowX: 'auto' }}>
+                                                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                                        <thead>
+                                                            <tr style={{ borderBottom: '2px solid var(--border-color)' }}>
+                                                                <th style={thRight}>Matéria Prima</th>
+                                                                <th style={{ ...thRight, textAlign: 'center' }}>Qtd. M.P.</th>
+                                                                <th style={{ ...thRight, textAlign: 'center' }}>R$/kg</th>
+                                                                <th style={{ ...thRight, textAlign: 'right' }}>Total (R$)</th>
+                                                                <th style={{ ...thRight, textAlign: 'center' }}>Créd. ICMS(%)</th>
+                                                                <th style={{ ...thRight, textAlign: 'right' }}>Créd. ICMS(R$)</th>
                                                             </tr>
-                                                        );
-                                                    })}
-                                                </tbody>
-                                                <tfoot>
-                                                    <tr style={{ borderTop: '2px solid var(--border-color)', fontWeight: 700 }}>
-                                                        <td style={tdRight}>Total</td>
-                                                        <td></td>
-                                                        <td></td>
-                                                        <td style={{ ...tdRight, textAlign: 'right', fontFamily: 'monospace', color: '#059669' }}>R$ {totalRS.toFixed(2)}</td>
-                                                        <td></td>
-                                                        <td style={{ ...tdRight, textAlign: 'right', fontFamily: 'monospace', color: '#059669' }}>R$ {totalIcmsRS.toFixed(2)}</td>
-                                                    </tr>
-                                                </tfoot>
-                                            </table>
+                                                        </thead>
+                                                        <tbody>
+                                                            {ings.map(ing => {
+                                                                const ingTotal = (Number(ing.quantidade) || 0) * (Number(ing.precoKg) || 0);
+                                                                const rm = rawMaterials.find(r => r.id === ing.rawMaterialId);
+                                                                const icmsPct = Number(rm?.compraIcms) || 0;
+                                                                const icmsRS = (icmsPct * ingTotal) / 100;
+                                                                return (
+                                                                    <tr key={ing.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                                                                        <td style={tdRight}>{ing.rawMaterialName || '—'}</td>
+                                                                        <td style={{ ...tdRight, textAlign: 'center', fontFamily: 'monospace' }}>{ing.quantidade}</td>
+                                                                        <td style={{ ...tdRight, textAlign: 'center', fontFamily: 'monospace' }}>{Number(ing.precoKg).toFixed(2)}</td>
+                                                                        <td style={{ ...tdRight, textAlign: 'right', fontFamily: 'monospace' }}>R$ {ingTotal.toFixed(2)}</td>
+                                                                        <td style={{ ...tdRight, textAlign: 'center', fontFamily: 'monospace' }}>{icmsPct.toFixed(2)}%</td>
+                                                                        <td style={{ ...tdRight, textAlign: 'right', fontFamily: 'monospace' }}>R$ {icmsRS.toFixed(2)}</td>
+                                                                    </tr>
+                                                                );
+                                                            })}
+                                                        </tbody>
+                                                        <tfoot>
+                                                            <tr style={{ borderTop: '2px solid var(--border-color)', fontWeight: 700 }}>
+                                                                <td style={tdRight}>Total</td>
+                                                                <td></td>
+                                                                <td></td>
+                                                                <td style={{ ...tdRight, textAlign: 'right', fontFamily: 'monospace', color: '#059669' }}>R$ {totalRS.toFixed(2)}</td>
+                                                                <td></td>
+                                                                <td style={{ ...tdRight, textAlign: 'right', fontFamily: 'monospace', color: '#059669' }}>R$ {totalIcmsRS.toFixed(2)}</td>
+                                                            </tr>
+                                                        </tfoot>
+                                                    </table>
+                                                </div>
+                                            )}
+                                            <div style={{ display: 'flex', gap: '24px', marginTop: '16px' }}>
+                                                <div style={{ flex: 1, background: 'var(--bg-secondary)', borderRadius: '8px', padding: '14px 16px', textAlign: 'center' }}>
+                                                    <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Custo Unidade</div>
+                                                    <div style={{ fontSize: '20px', fontWeight: 700, fontFamily: 'monospace', color: 'var(--text-primary)' }}>R$ {custoUnidade.toFixed(2)}</div>
+                                                </div>
+                                                <div style={{ flex: 1, background: '#f0fdf4', borderRadius: '8px', padding: '14px 16px', textAlign: 'center', border: '1px solid #bbf7d0' }}>
+                                                    <div style={{ fontSize: '11px', fontWeight: 600, color: '#166534', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Crédito ICMS</div>
+                                                    <div style={{ fontSize: '20px', fontWeight: 700, fontFamily: 'monospace', color: '#059669' }}>R$ {creditoIcmsUnit.toFixed(2)}</div>
+                                                </div>
+                                                <div style={{ flex: 1, background: '#eff6ff', borderRadius: '8px', padding: '14px 16px', textAlign: 'center', border: '1px solid #bfdbfe' }}>
+                                                    <div style={{ fontSize: '11px', fontWeight: 600, color: '#1e40af', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Custo Real</div>
+                                                    <div style={{ fontSize: '20px', fontWeight: 700, fontFamily: 'monospace', color: '#2563eb' }}>R$ {custoReal.toFixed(2)}</div>
+                                                </div>
+                                            </div>
                                         </div>
-                                    )}
-                                </div>
-                            );
-                        })()}
+                                    );
+                                })()}
 
+                                {/* ── Detalhes da Compra (only for Tercerizado) ── */}
+                                {selectedProduct?.category === 'Tercerizado' && (() => {
+                                    const precoCompra = Number(selectedProduct.compraPreco) || 0;
+                                    const icmsCompra = Number(selectedProduct.compraIcms) || 0;
+                                    const creditoIcms = (precoCompra * icmsCompra) / 100;
+                                    return (
+                                        <div className="card" style={{ padding: '16px 18px' }}>
+                                            <h4 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                                Custos da Compra
+                                            </h4>
+                                            <div style={{ display: 'flex', gap: '24px' }}>
+                                                <div style={{ flex: 1, background: 'var(--bg-secondary)', borderRadius: '8px', padding: '14px 16px', textAlign: 'center' }}>
+                                                    <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Preço de Compra</div>
+                                                    <div style={{ fontSize: '20px', fontWeight: 700, fontFamily: 'monospace', color: 'var(--text-primary)' }}>R$ {precoCompra.toFixed(2)}</div>
+                                                </div>
+                                                <div style={{ flex: 1, background: 'var(--bg-secondary)', borderRadius: '8px', padding: '14px 16px', textAlign: 'center' }}>
+                                                    <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>ICMS de Compra</div>
+                                                    <div style={{ fontSize: '20px', fontWeight: 700, fontFamily: 'monospace', color: 'var(--text-primary)' }}>{icmsCompra.toFixed(2)}%</div>
+                                                </div>
+                                                <div style={{ flex: 1, background: '#f0fdf4', borderRadius: '8px', padding: '14px 16px', textAlign: 'center', border: '1px solid #bbf7d0' }}>
+                                                    <div style={{ fontSize: '11px', fontWeight: 600, color: '#166534', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Crédito de ICMS</div>
+                                                    <div style={{ fontSize: '20px', fontWeight: 700, fontFamily: 'monospace', color: '#059669' }}>R$ {creditoIcms.toFixed(2)}</div>
+                                                </div>
+                                                <div style={{ flex: 1, background: '#eff6ff', borderRadius: '8px', padding: '14px 16px', textAlign: 'center', border: '1px solid #bfdbfe' }}>
+                                                    <div style={{ fontSize: '11px', fontWeight: 600, color: '#1e40af', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Custo Real</div>
+                                                    <div style={{ fontSize: '20px', fontWeight: 700, fontFamily: 'monospace', color: '#2563eb' }}>R$ {(precoCompra - creditoIcms).toFixed(2)}</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
+
+                            </div>
+                        )}
                     </div>
-                )}
+                </div>
             </div>
         </div >
     );

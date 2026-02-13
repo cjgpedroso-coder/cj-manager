@@ -304,7 +304,7 @@ export default function CustosPage() {
                                             <th style={{ position: 'sticky', top: 0, zIndex: 2, background: '#f9fafb', whiteSpace: 'nowrap' }}>Produto</th>
                                             <th style={{ position: 'sticky', top: 0, zIndex: 2, background: '#dbeafe', textAlign: 'right', whiteSpace: 'nowrap' }}>Vendas p/mês</th>
                                             <th style={{ position: 'sticky', top: 0, zIndex: 2, background: '#d1fae5', textAlign: 'right', whiteSpace: 'nowrap' }}>Rateio(%)</th>
-                                            <th style={{ position: 'sticky', top: 0, zIndex: 2, background: '#f9fafb', whiteSpace: 'nowrap' }}>Tipo</th>
+
                                             <th style={{ position: 'sticky', top: 0, zIndex: 2, background: '#fef3c7', textAlign: 'right', whiteSpace: 'nowrap' }}>Parcela Custos(R$)</th>
                                         </tr>
                                     </thead>
@@ -349,9 +349,7 @@ export default function CustosPage() {
                                                     <td style={{ textAlign: 'right', padding: '6px 8px', fontFamily: 'monospace', fontSize: '12px', background: 'rgba(5, 150, 105, 0.04)' }}>
                                                         {rateio.toFixed(2)}%
                                                     </td>
-                                                    <td style={{ color: '#6b7280', fontSize: '12px', whiteSpace: 'nowrap' }}>
-                                                        {p.category || '—'}
-                                                    </td>
+
                                                     <td style={{
                                                         textAlign: 'right', padding: '6px 8px',
                                                         fontFamily: 'monospace', fontSize: '12px', fontWeight: 600,
@@ -369,7 +367,7 @@ export default function CustosPage() {
                                             <td style={{ position: 'sticky', bottom: 0, background: '#f9fafb', borderTop: '2px solid var(--border-color)', zIndex: 2 }}>Total</td>
                                             <td style={{ position: 'sticky', bottom: 0, background: '#f9fafb', borderTop: '2px solid var(--border-color)', zIndex: 2, textAlign: 'right', fontFamily: 'monospace', padding: '8px' }}>{totalVendas.toFixed(0)}</td>
                                             <td style={{ position: 'sticky', bottom: 0, background: '#f9fafb', borderTop: '2px solid var(--border-color)', zIndex: 2, textAlign: 'right', fontFamily: 'monospace', padding: '8px' }}>100.00%</td>
-                                            <td style={{ position: 'sticky', bottom: 0, background: '#f9fafb', borderTop: '2px solid var(--border-color)', zIndex: 2 }}></td>
+
                                             <td style={{ position: 'sticky', bottom: 0, background: '#f9fafb', borderTop: '2px solid var(--border-color)', zIndex: 2, textAlign: 'right', fontFamily: 'monospace', padding: '8px', color: '#059669' }}>
                                                 R$ {products.reduce((s, p) => s + getParcelaCustos(p), 0).toFixed(2)}
                                             </td>

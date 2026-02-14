@@ -273,3 +273,29 @@ export async function updateProducaoMes(productId, producaoMes) {
   });
   return res.json();
 }
+
+// ── Price Table Entries ─────────────────────────────────────
+
+export async function getPriceTableEntries() {
+  const res = await fetch(`${API}/price-table-entries`);
+  return res.json();
+}
+
+export async function savePriceTableEntry(entry) {
+  const res = await fetch(`${API}/price-table-entries`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(entry),
+  });
+  return res.json();
+}
+
+export async function deletePriceTableEntry(id) {
+  const res = await fetch(`${API}/price-table-entries/${id}`, { method: 'DELETE' });
+  return res.json();
+}
+
+export async function clearPriceTableEntries() {
+  const res = await fetch(`${API}/price-table-entries`, { method: 'DELETE' });
+  return res.json();
+}

@@ -135,6 +135,18 @@ db.exec(`
     createdAt TEXT,
     updatedAt TEXT
   );
+
+  DROP TABLE IF EXISTS price_table_entries;
+  CREATE TABLE IF NOT EXISTS price_table_entries (
+    id TEXT PRIMARY KEY,
+    productName TEXT,
+    regimeBadge TEXT,
+    tabelaTipo TEXT,
+    tabela TEXT,
+    emitente TEXT,
+    precoFinal REAL DEFAULT 0,
+    createdAt TEXT
+  );
 `);
 
 // Migration: add producaoReceita column if missing
@@ -963,6 +975,46 @@ app.post('/api/restore', express.raw({ type: 'application/octet-stream', limit: 
         console.error('Restore error:', err);
         res.status(500).json({ error: err.message });
     }
+});
+
+// ── Price Table Entries ──────────────────────────────────────
+
+app.get('/api/price-table-entries', (req, res) => {
+    const entries = db.prepare('SELECT * FROM price_table_entries ORDER BY createdAt DESC').all();
+    res.json(entries);
+});
+
+app.post('/api/price-table-entries', (req, res) => {
+    const e = req.body;
+    const id = e.id || generateId();
+    const now = new Date().toISOString();
+
+    // Upsert: if same productName + regimeBadge + tabela + emitente + tabelaTipo exists, update
+    const existing = db.prepare(
+        'SELECT id FROM price_table_entries WHERE productName = ? AND regimeBadge = ? AND tabela = ? AND emitente = ? AND tabelaTipo = ?'
+    ).get(e.productName, e.regimeBadge || '', e.tabela, e.emitente, e.tabelaTipo);
+
+    if (existing) {
+        db.prepare(
+            'UPDATE price_table_entries SET precoFinal = ?, createdAt = ? WHERE id = ?'
+        ).run(Number(e.precoFinal) || 0, now, existing.id);
+        res.json({ ...e, id: existing.id, createdAt: now });
+    } else {
+        db.prepare(
+            'INSERT INTO price_table_entries (id, productName, regimeBadge, tabelaTipo, tabela, emitente, precoFinal, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+        ).run(id, e.productName || '', e.regimeBadge || '', e.tabelaTipo || 'Comum', e.tabela || '', e.emitente || '', Number(e.precoFinal) || 0, now);
+        res.json({ ...e, id, createdAt: now });
+    }
+});
+
+app.delete('/api/price-table-entries/:id', (req, res) => {
+    db.prepare('DELETE FROM price_table_entries WHERE id = ?').run(req.params.id);
+    res.json({ success: true });
+});
+
+app.delete('/api/price-table-entries', (req, res) => {
+    db.prepare('DELETE FROM price_table_entries').run();
+    res.json({ success: true });
 });
 
 // ── Start Server ─────────────────────────────────────────────

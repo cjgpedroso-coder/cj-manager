@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getProducts, getCosts, getRecipes, getRecipeIngredients, getRawMaterials } from '../utils/storage';
+import { getProducts, getCosts, getRecipes, getRecipeIngredients, getRawMaterials, savePriceTableEntry } from '../utils/storage';
 
 // Tax fields from Regras Tributárias (venda group)
 const TAX_KEYS = [
@@ -26,6 +26,11 @@ export default function PrecoPage() {
     const [operacao, setOperacao] = useState('Dentro do estado');
     const [emitente, setEmitente] = useState('ROMICA');
 
+    // Force Simples Nacional when RMC is selected
+    useEffect(() => {
+        if (emitente === 'RMC') setRegimeTributario('Simples Nacional');
+    }, [emitente]);
+
     // ── Form card ────────────────────────────────────────────
     const [tabela, setTabela] = useState('Volume');
     const [margemTipo, setMargemTipo] = useState('%');
@@ -43,6 +48,9 @@ export default function PrecoPage() {
     const [friendlyName, setFriendlyName] = useState('');
     const [useManualPrice, setUseManualPrice] = useState(false);
     const [manualPrice, setManualPrice] = useState('');
+    const [insertFeedback, setInsertFeedback] = useState('');
+    const [showInsertModal, setShowInsertModal] = useState(false);
+    const [insertModalData, setInsertModalData] = useState(null);
 
     const refresh = useCallback(async () => {
         const [p, c, r, rm] = await Promise.all([getProducts(), getCosts(), getRecipes(), getRawMaterials()]);
@@ -199,7 +207,8 @@ export default function PrecoPage() {
                                     className="form-select"
                                     value={regimeTributario}
                                     onChange={e => setRegimeTributario(e.target.value)}
-                                    style={{ width: '100%' }}
+                                    disabled={emitente === 'RMC'}
+                                    style={{ width: '100%', opacity: emitente === 'RMC' ? 0.5 : 1, cursor: emitente === 'RMC' ? 'not-allowed' : 'pointer' }}
                                 >
                                     <option value="Simples Nacional">Simples Nacional</option>
                                     <option value="Lucro Presumido">Lucro Presumido</option>
@@ -250,9 +259,9 @@ export default function PrecoPage() {
                                     style={{ width: '100%' }}
                                 >
                                     <option value="Volume">Volume</option>
-                                    <option value="Minimo">Mínimo</option>
-                                    <option value="Medio">Médio</option>
-                                    <option value="Maximo">Máximo</option>
+                                    <option value="Mínimo">Mínimo</option>
+                                    <option value="Médio">Médio</option>
+                                    <option value="Máximo">Máximo</option>
                                 </select>
                             </div>
 
@@ -1087,6 +1096,19 @@ export default function PrecoPage() {
                                                             ✓ Confirmar
                                                         </button>
                                                         <button
+                                                            onClick={() => {
+                                                                if (!selectedProduct) return;
+                                                                const productName = useFriendlyName && friendlyName.trim() ? friendlyName.trim() : selectedProduct.name;
+                                                                // Badge: RMC always Normal, ROMICA+SN = Simples, otherwise Normal
+                                                                let regimeBadge = 'Normal';
+                                                                if (emitente === 'ROMICA' && regimeTributario === 'Simples Nacional') {
+                                                                    regimeBadge = 'Simples';
+                                                                }
+                                                                const emitenteVal = regimeTributario === 'Sem Nfe' ? 'S/NF' : emitente;
+                                                                const displayPrice = useManualPrice ? (parseFloat(manualPrice.replace(',', '.')) || 0) : precoFinal;
+                                                                setInsertModalData({ productName, regimeBadge, emitenteVal, tabela, regimeTributario, displayPrice });
+                                                                setShowInsertModal(true);
+                                                            }}
                                                             style={{
                                                                 flex: 1, padding: '10px 16px', fontSize: '13px', fontWeight: 700,
                                                                 border: '2px solid var(--accent-primary)', borderRadius: '8px', cursor: 'pointer',
@@ -1109,6 +1131,84 @@ export default function PrecoPage() {
                     </div>
                 </div>
             </div>
+
+            {/* ── Insert Confirmation Modal ── */}
+            {showInsertModal && insertModalData && (() => {
+                const { productName, regimeBadge, emitenteVal, tabela: tabelaVal, regimeTributario: regimeVal, displayPrice } = insertModalData;
+                return (
+                    <div style={{
+                        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999,
+                    }} onClick={() => setShowInsertModal(false)}>
+                        <div style={{
+                            background: 'var(--bg-primary)', borderRadius: '16px', padding: '28px 32px',
+                            width: '420px', maxWidth: '90vw', boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+                        }} onClick={e => e.stopPropagation()}>
+                            <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '20px', textAlign: 'center' }}>
+                                Confirmar Inserção na Tabela
+                            </h3>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px' }}>
+                                {[
+                                    { label: 'Produto', value: `${productName} (${regimeBadge})` },
+                                    { label: 'Tabela', value: tabelaVal },
+                                    { label: 'Emitente', value: emitenteVal },
+                                    { label: 'Regime Tributário', value: regimeVal },
+                                    { label: 'Preço Final', value: `R$ ${displayPrice.toFixed(2)}`, highlight: true },
+                                ].map(item => (
+                                    <div key={item.label} style={{
+                                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                        padding: '10px 14px', borderRadius: '8px',
+                                        background: item.highlight ? '#eff6ff' : 'var(--bg-secondary)',
+                                        border: item.highlight ? '1px solid #bfdbfe' : '1px solid var(--border-color)',
+                                    }}>
+                                        <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.3px' }}>{item.label}</span>
+                                        <span style={{
+                                            fontSize: item.highlight ? '16px' : '13px',
+                                            fontWeight: 700, fontFamily: 'monospace',
+                                            color: item.highlight ? '#2563eb' : 'var(--text-primary)',
+                                        }}>{item.value}</span>
+                                    </div>
+                                ))}
+                            </div>
+                            <div style={{ display: 'flex', gap: '12px' }}>
+                                <button onClick={() => setShowInsertModal(false)} style={{
+                                    flex: 1, padding: '10px', fontSize: '13px', fontWeight: 700,
+                                    border: '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer',
+                                    background: 'transparent', color: 'var(--text-secondary)',
+                                }}>Cancelar</button>
+                                <button onClick={async () => {
+                                    await savePriceTableEntry({
+                                        productName, regimeBadge, tabelaTipo: 'Comum',
+                                        tabela: tabelaVal, emitente: emitenteVal, precoFinal: displayPrice,
+                                    });
+                                    setShowInsertModal(false);
+                                    setInsertModalData(null);
+                                    setInsertFeedback(`"${productName} (${regimeBadge})" inserido na tabela ${tabelaVal} / ${emitenteVal}`);
+                                    setTimeout(() => setInsertFeedback(''), 5000);
+                                }} style={{
+                                    flex: 1, padding: '10px', fontSize: '13px', fontWeight: 700,
+                                    border: 'none', borderRadius: '8px', cursor: 'pointer',
+                                    background: 'var(--accent-primary)', color: 'white',
+                                }}>✓ Confirmar</button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
+
+            {/* ── Success Toast ── */}
+            {insertFeedback && (
+                <div style={{
+                    position: 'fixed', top: '24px', left: '50%', transform: 'translateX(-50%)',
+                    zIndex: 10000, background: '#059669', color: 'white',
+                    padding: '14px 28px', borderRadius: '12px',
+                    boxShadow: '0 8px 32px rgba(5, 150, 105, 0.4)',
+                    fontSize: '14px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px',
+                }}>
+                    <span style={{ fontSize: '18px' }}>✓</span>
+                    {insertFeedback}
+                </div>
+            )}
         </div >
     );
 }

@@ -24,6 +24,7 @@ export default function PrecoPage() {
     const [selectedProductId, setSelectedProductId] = useState('');
     const [regimeTributario, setRegimeTributario] = useState('Lucro Presumido');
     const [operacao, setOperacao] = useState('Dentro do estado');
+    const [emitente, setEmitente] = useState('ROMICA');
 
     // ── Form card ────────────────────────────────────────────
     const [tabela, setTabela] = useState('Volume');
@@ -94,8 +95,15 @@ export default function PrecoPage() {
             TAX_KEYS.forEach(t => { newTaxes[t.key] = 0; });
         }
 
+        // If emitente = RMC → ICMS = 4%, all others = 0
+        if (emitente === 'RMC') {
+            TAX_KEYS.forEach(t => {
+                newTaxes[t.key] = t.key === 'vendaIcms' ? 4 : 0;
+            });
+        }
+
         setTaxes(newTaxes);
-    }, [selectedProduct, regimeTributario, operacao]);
+    }, [selectedProduct, regimeTributario, operacao, emitente]);
 
     // Only show taxes that are > 0 OR when "Fora do estado" (show all for manual input)
     const visibleTaxes = TAX_KEYS.filter(t => {
@@ -132,6 +140,30 @@ export default function PrecoPage() {
                         </h4>
 
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                            {/* Emitente - Toggle */}
+                            <div style={{ gridColumn: '1 / -1' }}>
+                                <label style={labelStyle}>Emitente</label>
+                                <div style={{
+                                    display: 'flex', borderRadius: '8px', overflow: 'hidden',
+                                    border: '1px solid var(--border-color)',
+                                }}>
+                                    <button
+                                        type="button"
+                                        onClick={() => setEmitente('ROMICA')}
+                                        style={toggleBtnStyle(emitente === 'ROMICA')}
+                                    >
+                                        ROMICA
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setEmitente('RMC')}
+                                        style={toggleBtnStyle(emitente === 'RMC')}
+                                    >
+                                        RMC
+                                    </button>
+                                </div>
+                            </div>
+
                             {/* Data */}
                             <div>
                                 <label style={labelStyle}>Data</label>
@@ -559,7 +591,7 @@ export default function PrecoPage() {
                                         return s + ((Number(rm?.compraIcms) || 0) * t) / 100;
                                     }, 0);
                                     const custoUnidade = totalRS / producao;
-                                    const creditoIcmsUnit = totalIcmsRS / producao;
+                                    const creditoIcmsUnit = emitente === 'RMC' ? 0 : totalIcmsRS / producao;
                                     const custoReal = custoUnidade - creditoIcmsUnit;
                                     return (
                                         <div className="card" style={{ padding: '16px 18px' }}>
@@ -617,9 +649,14 @@ export default function PrecoPage() {
                                                     <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Custo Unidade</div>
                                                     <div style={{ fontSize: '20px', fontWeight: 700, fontFamily: 'monospace', color: 'var(--text-primary)' }}>R$ {custoUnidade.toFixed(2)}</div>
                                                 </div>
-                                                <div style={{ flex: 1, background: '#f0fdf4', borderRadius: '8px', padding: '14px 16px', textAlign: 'center', border: '1px solid #bbf7d0' }}>
-                                                    <div style={{ fontSize: '11px', fontWeight: 600, color: '#166534', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Crédito ICMS</div>
-                                                    <div style={{ fontSize: '20px', fontWeight: 700, fontFamily: 'monospace', color: '#059669' }}>R$ {creditoIcmsUnit.toFixed(2)}</div>
+                                                <div style={{
+                                                    flex: 1, borderRadius: '8px', padding: '14px 16px', textAlign: 'center',
+                                                    background: emitente === 'RMC' ? 'var(--bg-secondary)' : '#f0fdf4',
+                                                    border: emitente === 'RMC' ? '1px dashed var(--border-color)' : '1px solid #bbf7d0',
+                                                    opacity: emitente === 'RMC' ? 0.4 : 1,
+                                                }}>
+                                                    <div style={{ fontSize: '11px', fontWeight: 600, color: emitente === 'RMC' ? 'var(--text-secondary)' : '#166534', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Crédito ICMS</div>
+                                                    <div style={{ fontSize: '20px', fontWeight: 700, fontFamily: 'monospace', color: emitente === 'RMC' ? 'var(--text-secondary)' : '#059669' }}>R$ {creditoIcmsUnit.toFixed(2)}</div>
                                                 </div>
                                                 <div style={{ flex: 1, background: '#eff6ff', borderRadius: '8px', padding: '14px 16px', textAlign: 'center', border: '1px solid #bfdbfe' }}>
                                                     <div style={{ fontSize: '11px', fontWeight: 600, color: '#1e40af', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Custo Real</div>
@@ -633,8 +670,8 @@ export default function PrecoPage() {
                                 {/* ── Detalhes da Compra (only for Tercerizado) ── */}
                                 {selectedProduct?.category === 'Tercerizado' && (() => {
                                     const precoCompra = Number(selectedProduct.compraPreco) || 0;
-                                    const icmsCompra = Number(selectedProduct.compraIcms) || 0;
-                                    const creditoIcms = (precoCompra * icmsCompra) / 100;
+                                    const icmsCompra = emitente === 'RMC' ? 0 : (Number(selectedProduct.compraIcms) || 0);
+                                    const creditoIcms = emitente === 'RMC' ? 0 : (precoCompra * icmsCompra) / 100;
                                     return (
                                         <div className="card" style={{ padding: '16px 18px' }}>
                                             <h4 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
@@ -645,13 +682,23 @@ export default function PrecoPage() {
                                                     <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Preço de Compra</div>
                                                     <div style={{ fontSize: '20px', fontWeight: 700, fontFamily: 'monospace', color: 'var(--text-primary)' }}>R$ {precoCompra.toFixed(2)}</div>
                                                 </div>
-                                                <div style={{ flex: 1, background: 'var(--bg-secondary)', borderRadius: '8px', padding: '14px 16px', textAlign: 'center' }}>
+                                                <div style={{
+                                                    flex: 1, borderRadius: '8px', padding: '14px 16px', textAlign: 'center',
+                                                    background: emitente === 'RMC' ? 'var(--bg-secondary)' : 'var(--bg-secondary)',
+                                                    border: emitente === 'RMC' ? '1px dashed var(--border-color)' : 'none',
+                                                    opacity: emitente === 'RMC' ? 0.4 : 1,
+                                                }}>
                                                     <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>ICMS de Compra</div>
-                                                    <div style={{ fontSize: '20px', fontWeight: 700, fontFamily: 'monospace', color: 'var(--text-primary)' }}>{icmsCompra.toFixed(2)}%</div>
+                                                    <div style={{ fontSize: '20px', fontWeight: 700, fontFamily: 'monospace', color: emitente === 'RMC' ? 'var(--text-secondary)' : 'var(--text-primary)' }}>{icmsCompra.toFixed(2)}%</div>
                                                 </div>
-                                                <div style={{ flex: 1, background: '#f0fdf4', borderRadius: '8px', padding: '14px 16px', textAlign: 'center', border: '1px solid #bbf7d0' }}>
-                                                    <div style={{ fontSize: '11px', fontWeight: 600, color: '#166534', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Crédito de ICMS</div>
-                                                    <div style={{ fontSize: '20px', fontWeight: 700, fontFamily: 'monospace', color: '#059669' }}>R$ {creditoIcms.toFixed(2)}</div>
+                                                <div style={{
+                                                    flex: 1, borderRadius: '8px', padding: '14px 16px', textAlign: 'center',
+                                                    background: emitente === 'RMC' ? 'var(--bg-secondary)' : '#f0fdf4',
+                                                    border: emitente === 'RMC' ? '1px dashed var(--border-color)' : '1px solid #bbf7d0',
+                                                    opacity: emitente === 'RMC' ? 0.4 : 1,
+                                                }}>
+                                                    <div style={{ fontSize: '11px', fontWeight: 600, color: emitente === 'RMC' ? 'var(--text-secondary)' : '#166534', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Crédito de ICMS</div>
+                                                    <div style={{ fontSize: '20px', fontWeight: 700, fontFamily: 'monospace', color: emitente === 'RMC' ? 'var(--text-secondary)' : '#059669' }}>R$ {creditoIcms.toFixed(2)}</div>
                                                 </div>
                                                 <div style={{ flex: 1, background: '#eff6ff', borderRadius: '8px', padding: '14px 16px', textAlign: 'center', border: '1px solid #bfdbfe' }}>
                                                     <div style={{ fontSize: '11px', fontWeight: 600, color: '#1e40af', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Custo Real</div>
@@ -670,7 +717,7 @@ export default function PrecoPage() {
                                     if (isTercerizado) {
                                         const precoCompra = Number(selectedProduct.compraPreco) || 0;
                                         const icmsCompra = Number(selectedProduct.compraIcms) || 0;
-                                        const creditoIcms = (precoCompra * icmsCompra) / 100;
+                                        const creditoIcms = emitente === 'RMC' ? 0 : (precoCompra * icmsCompra) / 100;
                                         custoReal = precoCompra - creditoIcms;
                                     } else {
                                         const recipe = recipes.find(r => r.productId === selectedProduct.id);
@@ -683,7 +730,8 @@ export default function PrecoPage() {
                                                 const rm = rawMaterials.find(r => r.id === i.rawMaterialId);
                                                 return s + ((Number(rm?.compraIcms) || 0) * t) / 100;
                                             }, 0);
-                                            custoReal = (totalRS / producao) - (totalIcmsRS / producao);
+                                            const creditIcmsAdj = emitente === 'RMC' ? 0 : (totalIcmsRS / producao);
+                                            custoReal = (totalRS / producao) - creditIcmsAdj;
                                         }
                                     }
 

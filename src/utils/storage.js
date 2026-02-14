@@ -264,3 +264,12 @@ export async function updateVendasMes(productId, vendasMes) {
   });
   return res.json();
 }
+
+export async function updateProducaoMes(productId, producaoMes) {
+  const res = await fetch(`${API}/products/${productId}/producao-mes`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ producaoMes }),
+  });
+  return res.json();
+}

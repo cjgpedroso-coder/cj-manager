@@ -174,6 +174,7 @@ for (const col of rawMatTaxCols) {
 
 // Migration: add vendasMes column to products
 try { db.exec('ALTER TABLE products ADD COLUMN vendasMes REAL DEFAULT 0'); } catch (e) { /* already exists */ }
+try { db.exec('ALTER TABLE products ADD COLUMN producaoMes REAL DEFAULT 0'); } catch (e) { /* already exists */ }
 
 // Seed default admin user
 const existingAdmin = db.prepare('SELECT * FROM users WHERE username = ?').get('caio');
@@ -806,6 +807,14 @@ app.put('/api/products/:id/vendas-mes', (req, res) => {
     const { vendasMes } = req.body;
     db.prepare('UPDATE products SET vendasMes = ?, updatedAt = ? WHERE id = ?')
         .run(Number(vendasMes) || 0, new Date().toISOString(), req.params.id);
+    res.json({ success: true });
+});
+
+// Update producaoMes for a product
+app.put('/api/products/:id/producao-mes', (req, res) => {
+    const { producaoMes } = req.body;
+    db.prepare('UPDATE products SET producaoMes = ?, updatedAt = ? WHERE id = ?')
+        .run(Number(producaoMes) || 0, new Date().toISOString(), req.params.id);
     res.json({ success: true });
 });
 

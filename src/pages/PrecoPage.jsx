@@ -22,20 +22,26 @@ export default function PrecoPage() {
     // ── Top card selections ──────────────────────────────────
     const [data, setData] = useState(new Date().toISOString().slice(0, 10));
     const [selectedProductId, setSelectedProductId] = useState('');
-    const [regimeTributario, setRegimeTributario] = useState('Simples Nacional');
+    const [regimeTributario, setRegimeTributario] = useState('Lucro Presumido');
     const [operacao, setOperacao] = useState('Dentro do estado');
 
     // ── Form card ────────────────────────────────────────────
     const [tabela, setTabela] = useState('Volume');
-    const [margemTipo, setMargemTipo] = useState('R$');
+    const [margemTipo, setMargemTipo] = useState('%');
     const [margemValor, setMargemValor] = useState('');
-    const [freteTipo, setFreteTipo] = useState('R$');
+    const [freteTipo, setFreteTipo] = useState('%');
     const [freteValor, setFreteValor] = useState('');
-    const [comissaoTipo, setComissaoTipo] = useState('R$');
+    const [comissaoTipo, setComissaoTipo] = useState('%');
     const [comissaoValor, setComissaoValor] = useState('');
 
     // ── Taxes ────────────────────────────────────────────────
     const [taxes, setTaxes] = useState({}); // { vendaIcms: 0, vendaPis: 0, ... }
+
+    // ── Confirmation card ─────────────────────────────────────
+    const [useFriendlyName, setUseFriendlyName] = useState(false);
+    const [friendlyName, setFriendlyName] = useState('');
+    const [useManualPrice, setUseManualPrice] = useState(false);
+    const [manualPrice, setManualPrice] = useState('');
 
     const refresh = useCallback(async () => {
         const [p, c, r, rm] = await Promise.all([getProducts(), getCosts(), getRecipes(), getRawMaterials()]);
@@ -476,21 +482,28 @@ export default function PrecoPage() {
                                     const totalCustoOperacional = costs.filter(c => c.type === 'Operacional').reduce((s, c) => s + (Number(c.valorMedio) || 0), 0);
                                     const totalCustoGeral = costs.filter(c => c.type !== 'Operacional').reduce((s, c) => s + (Number(c.valorMedio) || 0), 0);
                                     const totalVendas = products.reduce((s, p) => s + (Number(p.vendasMes) || 0), 0);
-                                    const rateio = totalVendas > 0 ? ((Number(selectedProduct.vendasMes) || 0) * 100) / totalVendas : 0;
-                                    const custoGeralAbsorvido = (totalCustoGeral * rateio) / 100;
+                                    const vendasMesProd = Number(selectedProduct.vendasMes) || 0;
 
+                                    // Geral: rateio based on vendasMes share among ALL products
+                                    const rateioGeral = totalVendas > 0 ? (vendasMesProd * 100) / totalVendas : 0;
+                                    const custoGeralAbsorvido = (totalCustoGeral * rateioGeral) / 100;
+
+                                    // Operacional: rateio based on producaoMes share among Produção products
                                     const isProd = selectedProduct?.category === 'Produção';
-                                    const recipe = isProd ? recipes.find(r => r.productId === selectedProduct.id) : null;
-                                    const qtyProdutoMes = Number(recipe?.qtyProdutoMes) || 0;
-                                    const qtyGeralMes = Number(recipe?.qtyGeralMes) || 0;
-                                    const proporcaoProd = qtyGeralMes > 0 ? (qtyProdutoMes * 100) / qtyGeralMes : 0;
-                                    const custoOpAbsorvido = isProd ? (totalCustoOperacional * proporcaoProd) / 100 : 0;
+                                    let rateioOp = 0;
+                                    let custoOpAbsorvido = 0;
+                                    if (isProd) {
+                                        const prodProducts = products.filter(p => p.category === 'Produção');
+                                        const totalProducao = prodProducts.reduce((s, p) => s + (Number(p.producaoMes) || 0), 0);
+                                        rateioOp = totalProducao > 0 ? ((Number(selectedProduct.producaoMes) || 0) * 100) / totalProducao : 0;
+                                        custoOpAbsorvido = (totalCustoOperacional * rateioOp) / 100;
+                                    }
 
                                     const rows = [];
                                     if (isProd) {
-                                        rows.push({ label: 'Custos Operacionais', value: custoOpAbsorvido });
+                                        rows.push({ label: 'Custos Operacionais', rateio: rateioOp, value: custoOpAbsorvido });
                                     }
-                                    rows.push({ label: 'Custos Gerais', value: custoGeralAbsorvido });
+                                    rows.push({ label: 'Custos Gerais', rateio: rateioGeral, value: custoGeralAbsorvido });
                                     const totalAbsorvido = rows.reduce((s, r) => s + r.value, 0);
 
                                     return (
@@ -503,13 +516,15 @@ export default function PrecoPage() {
                                                     <thead>
                                                         <tr style={{ borderBottom: '2px solid var(--border-color)' }}>
                                                             <th style={thRight}>Tipo</th>
-                                                            <th style={{ ...thRight, textAlign: 'right' }}>Valor Absorvido (R$)</th>
+                                                            <th style={{ ...thRight, textAlign: 'right' }}>Rateio (%)</th>
+                                                            <th style={{ ...thRight, textAlign: 'right' }}>Parcela (R$/mês)</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
                                                         {rows.map(r => (
                                                             <tr key={r.label} style={{ borderBottom: '1px solid var(--border-color)' }}>
                                                                 <td style={tdRight}>{r.label}</td>
+                                                                <td style={{ ...tdRight, textAlign: 'right', fontFamily: 'monospace' }}>{r.rateio.toFixed(2)}%</td>
                                                                 <td style={{ ...tdRight, textAlign: 'right', fontFamily: 'monospace' }}>R$ {r.value.toFixed(2)}</td>
                                                             </tr>
                                                         ))}
@@ -517,7 +532,7 @@ export default function PrecoPage() {
                                                 </table>
                                             </div>
                                             <div style={{ marginTop: '0', borderTop: '2px solid var(--border-color)', padding: '8px 10px', display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}>
-                                                <span style={{ fontSize: '13px' }}>Total</span>
+                                                <span style={{ fontSize: '13px' }}>Total Absorvido</span>
                                                 <span style={{ fontFamily: 'monospace', fontSize: '13px', color: '#059669' }}>R$ {totalAbsorvido.toFixed(2)}</span>
                                             </div>
                                         </div>
@@ -672,9 +687,26 @@ export default function PrecoPage() {
                                         }
                                     }
 
-                                    // ── Rateio % ──
+                                    // ── Custos Operacionais Absorvidos (R$/unidade) ──
+                                    const vendasMesProd = Number(selectedProduct.vendasMes) || 0;
+                                    const totalCustoOp = costs.filter(c => c.type === 'Operacional').reduce((s, c) => s + (Number(c.valorMedio) || 0), 0);
+                                    const totalCustoGeral = costs.filter(c => c.type !== 'Operacional').reduce((s, c) => s + (Number(c.valorMedio) || 0), 0);
+
+                                    let rateioOpPct = 0;
+                                    let custoAbsorvOpUnit = 0;
+                                    if (selectedProduct.category === 'Produção') {
+                                        const prodProducts = products.filter(p => p.category === 'Produção');
+                                        const totalProducao = prodProducts.reduce((s, p) => s + (Number(p.producaoMes) || 0), 0);
+                                        rateioOpPct = totalProducao > 0 ? ((Number(selectedProduct.producaoMes) || 0) * 100) / totalProducao : 0;
+                                        const parcelaOp = totalCustoOp * rateioOpPct / 100;
+                                        custoAbsorvOpUnit = vendasMesProd > 0 ? parcelaOp / vendasMesProd : 0;
+                                    }
+
+                                    // ── Custos Gerais Absorvidos (R$/unidade) ──
                                     const totalVendas = products.reduce((s, p) => s + (Number(p.vendasMes) || 0), 0);
-                                    const rateioPct = totalVendas > 0 ? ((Number(selectedProduct.vendasMes) || 0) * 100) / totalVendas : 0;
+                                    const rateioGeralPct = totalVendas > 0 ? (vendasMesProd * 100) / totalVendas : 0;
+                                    const parcelaGeral = totalCustoGeral * rateioGeralPct / 100;
+                                    const custoAbsorvGeralUnit = vendasMesProd > 0 ? parcelaGeral / vendasMesProd : 0;
 
                                     // ── Margem ──
                                     const margemNum = Number(margemValor) || 0;
@@ -691,14 +723,13 @@ export default function PrecoPage() {
                                     const comissaoPct = comissaoTipo === '%' ? comissaoNum : 0;
                                     const comissaoRS = comissaoTipo === 'R$' ? comissaoNum : 0;
 
-                                    // ── Custo Final = Custo Real + valores fixos em R$ ──
-                                    const custoFinal = custoReal + margemRS + freteRS + comissaoRS;
+                                    // ── Custo Final = Custo Real + Absorções R$/unit + extras R$ ──
+                                    const custoFinal = custoReal + custoAbsorvOpUnit + custoAbsorvGeralUnit + margemRS + freteRS + comissaoRS;
 
-                                    // ── Markup: Preço = CustoFinal / (1 - impostos% - rateio% - margem% - frete% - comissão%) ──
+                                    // ── Markup: Preço = CustoFinal / (1 - impostos% - margem% - frete% - comissão%) ──
                                     const totalTaxPct = visibleTaxes.reduce((s, t) => s + (Number(taxes[t.key]) || 0), 0);
-                                    const totalDivisor = rateioPct + totalTaxPct + margemPct + fretePct + comissaoPct;
+                                    const totalDivisor = totalTaxPct + margemPct + fretePct + comissaoPct;
                                     const precoFinal = totalDivisor < 100 ? custoFinal / (1 - totalDivisor / 100) : custoFinal;
-                                    const rateioRS_calc = (precoFinal * rateioPct) / 100;
                                     const totalImpostosRS = (precoFinal * totalTaxPct) / 100;
                                     const margemRS_calc = margemTipo === '%' ? (precoFinal * margemPct) / 100 : margemRS;
                                     const freteRS_calc = freteTipo === '%' ? (precoFinal * fretePct) / 100 : freteRS;
@@ -708,6 +739,12 @@ export default function PrecoPage() {
                                     const cfRows = [
                                         { label: 'Custo Real', value: custoReal },
                                     ];
+                                    if (custoAbsorvOpUnit > 0) {
+                                        cfRows.push({ label: <>Custos Absorvidos<br />Operacionais ({rateioOpPct.toFixed(2)}%)</>, value: custoAbsorvOpUnit });
+                                    }
+                                    if (custoAbsorvGeralUnit > 0) {
+                                        cfRows.push({ label: <>Custos Absorvidos<br />Gerais ({rateioGeralPct.toFixed(2)}%)</>, value: custoAbsorvGeralUnit });
+                                    }
                                     // R$ values go here (they add to Custo Final)
                                     if (margemTipo === 'R$' && margemRS > 0) {
                                         cfRows.push({ label: `Margem (R$${margemNum.toFixed(2)})`, value: margemRS });
@@ -730,8 +767,6 @@ export default function PrecoPage() {
                                             fpRows.push({ label: `${t.label} (${pct.toFixed(2)}%)`, value: (precoFinal * pct) / 100 });
                                         }
                                     });
-                                    // Custos Absorv.
-                                    fpRows.push({ label: `Custos Absorv. (${rateioPct.toFixed(2)}%)`, value: rateioRS_calc });
                                     // % values go here (they're in the markup divisor)
                                     if (margemTipo === '%' && margemPct > 0) {
                                         fpRows.push({ label: `Margem (${margemPct.toFixed(2)}%)`, value: margemRS_calc });
@@ -743,68 +778,281 @@ export default function PrecoPage() {
                                         fpRows.push({ label: `Comissão (${comissaoPct.toFixed(2)}%)`, value: comissaoRS_calc });
                                     }
 
-                                    return (
-                                        <div style={{ display: 'flex', gap: '16px', alignItems: 'stretch' }}>
-                                            {/* Custo Final card */}
-                                            <div className="card" style={{ padding: '16px 18px', flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-                                                <h4 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                                                    Custo Final
-                                                </h4>
-                                                <div style={{ overflowX: 'auto', flex: 1 }}>
-                                                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                                                        <thead>
-                                                            <tr style={{ borderBottom: '2px solid var(--border-color)' }}>
-                                                                <th style={thRight}>Componente</th>
-                                                                <th style={{ ...thRight, textAlign: 'right' }}>Valor (R$)</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody>
-                                                            {cfRows.map(r => (
-                                                                <tr key={r.label} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                                                                    <td style={tdRight}>{r.label}</td>
-                                                                    <td style={{ ...tdRight, textAlign: 'right', fontFamily: 'monospace' }}>R$ {r.value.toFixed(2)}</td>
-                                                                </tr>
-                                                            ))}
-                                                        </tbody>
-                                                    </table>
-                                                </div>
-                                                <div style={{ marginTop: 'auto', borderTop: '2px solid var(--border-color)', padding: '8px 10px', display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}>
-                                                    <span style={{ fontSize: '13px' }}>Custo Final</span>
-                                                    <span style={{ fontFamily: 'monospace', fontSize: '13px', color: '#059669' }}>R$ {custoFinal.toFixed(2)}</span>
-                                                </div>
-                                            </div>
+                                    // ── Pie chart data ──
+                                    const pieData = [];
+                                    pieData.push({ label: 'Custo Final', value: custoFinal, color: '#059669' });
+                                    if (totalImpostosRS > 0) pieData.push({ label: 'Impostos', value: totalImpostosRS, color: '#ef4444' });
+                                    if (freteRS_calc > 0) pieData.push({ label: 'Frete', value: freteRS_calc, color: '#f59e0b' });
+                                    if (comissaoRS_calc > 0) pieData.push({ label: 'Comissão', value: comissaoRS_calc, color: '#8b5cf6' });
+                                    if (margemRS_calc > 0) pieData.push({ label: 'Margem', value: margemRS_calc, color: '#3b82f6' });
+                                    const pieTotal = pieData.reduce((s, d) => s + d.value, 0);
 
-                                            {/* Formação de Preço card */}
-                                            <div className="card" style={{ padding: '16px 18px', flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-                                                <h4 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                                                    Formação de Preço
-                                                </h4>
-                                                <div style={{ overflowX: 'auto', flex: 1 }}>
-                                                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                                                        <thead>
-                                                            <tr style={{ borderBottom: '2px solid var(--border-color)' }}>
-                                                                <th style={thRight}>Componente</th>
-                                                                <th style={{ ...thRight, textAlign: 'right' }}>Valor (R$)</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody>
-                                                            {fpRows.map(r => (
-                                                                <tr key={r.label} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                                                                    <td style={tdRight}>{r.label}</td>
-                                                                    <td style={{ ...tdRight, textAlign: 'right', fontFamily: 'monospace' }}>R$ {r.value.toFixed(2)}</td>
+                                    // Build SVG pie slices
+                                    const piePaths = [];
+                                    let cumAngle = -Math.PI / 2;
+                                    const cx = 90, cy = 90, r = 80;
+                                    pieData.forEach((d, i) => {
+                                        const pct = pieTotal > 0 ? d.value / pieTotal : 0;
+                                        if (pct <= 0) return;
+                                        const angle = pct * 2 * Math.PI;
+                                        const largeArc = angle > Math.PI ? 1 : 0;
+                                        const x1 = cx + r * Math.cos(cumAngle);
+                                        const y1 = cy + r * Math.sin(cumAngle);
+                                        const x2 = cx + r * Math.cos(cumAngle + angle);
+                                        const y2 = cy + r * Math.sin(cumAngle + angle);
+                                        if (pct >= 0.9999) {
+                                            piePaths.push(<circle key={i} cx={cx} cy={cy} r={r} fill={d.color} />);
+                                        } else {
+                                            piePaths.push(<path key={i} d={`M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${largeArc},1 ${x2},${y2} Z`} fill={d.color} />);
+                                        }
+                                        cumAngle += angle;
+                                    });
+
+                                    const displayPrice = useManualPrice ? (parseFloat(manualPrice.replace(',', '.')) || 0) : precoFinal;
+
+                                    return (
+                                        <>
+                                            <div style={{ display: 'flex', gap: '16px', alignItems: 'stretch' }}>
+                                                {/* Custo Final card */}
+                                                <div className="card" style={{ padding: '16px 18px', flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                                                    <h4 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                                        Custo Final
+                                                    </h4>
+                                                    <div style={{ overflowX: 'auto', flex: 1 }}>
+                                                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                                            <thead>
+                                                                <tr style={{ borderBottom: '2px solid var(--border-color)' }}>
+                                                                    <th style={thRight}>Componente</th>
+                                                                    <th style={{ ...thRight, textAlign: 'right' }}>Valor (R$)</th>
                                                                 </tr>
-                                                            ))}
-                                                        </tbody>
-                                                    </table>
+                                                            </thead>
+                                                            <tbody>
+                                                                {cfRows.map(r => (
+                                                                    <tr key={r.label} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                                                                        <td style={tdRight}>{r.label}</td>
+                                                                        <td style={{ ...tdRight, textAlign: 'right', fontFamily: 'monospace' }}>R$ {r.value.toFixed(2)}</td>
+                                                                    </tr>
+                                                                ))}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                    <div style={{ marginTop: 'auto', borderTop: '2px solid var(--border-color)', padding: '8px 10px', display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}>
+                                                        <span style={{ fontSize: '13px' }}>Custo Final</span>
+                                                        <span style={{ fontFamily: 'monospace', fontSize: '13px', color: '#059669' }}>R$ {custoFinal.toFixed(2)}</span>
+                                                    </div>
                                                 </div>
-                                                <div style={{ marginTop: 'auto', borderTop: '2px solid var(--border-color)', padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, borderTop: '1px solid var(--border-color)', paddingTop: '6px' }}>
-                                                        <span style={{ fontSize: '14px', color: 'var(--text-primary)' }}>Preço de Venda</span>
-                                                        <span style={{ fontFamily: 'monospace', fontSize: '15px', color: '#2563eb' }}>R$ {precoFinal.toFixed(2)}</span>
+
+                                                {/* Formação de Preço card */}
+                                                <div className="card" style={{ padding: '16px 18px', flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                                                    <h4 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                                        Formação de Preço
+                                                    </h4>
+                                                    <div style={{ overflowX: 'auto', flex: 1 }}>
+                                                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                                            <thead>
+                                                                <tr style={{ borderBottom: '2px solid var(--border-color)' }}>
+                                                                    <th style={thRight}>Componente</th>
+                                                                    <th style={{ ...thRight, textAlign: 'right' }}>Valor (R$)</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                {fpRows.map(r => (
+                                                                    <tr key={r.label} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                                                                        <td style={tdRight}>{r.label}</td>
+                                                                        <td style={{ ...tdRight, textAlign: 'right', fontFamily: 'monospace' }}>R$ {r.value.toFixed(2)}</td>
+                                                                    </tr>
+                                                                ))}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                    <div style={{ marginTop: 'auto', borderTop: '2px solid var(--border-color)', padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, borderTop: '1px solid var(--border-color)', paddingTop: '6px' }}>
+                                                            <span style={{ fontSize: '14px', color: 'var(--text-primary)' }}>Preço de Venda</span>
+                                                            <span style={{ fontFamily: 'monospace', fontSize: '15px', color: '#2563eb' }}>R$ {precoFinal.toFixed(2)}</span>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
-                                        </div>
+
+                                            {/* ── Pie Chart + Confirmation row ── */}
+                                            <div style={{ display: 'flex', gap: '16px', alignItems: 'stretch' }}>
+
+                                                {/* Pie Chart card */}
+                                                <div className="card" style={{ padding: '16px 18px', flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                                                    <h4 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                                        Composição do Preço
+                                                    </h4>
+                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', flex: 1 }}>
+                                                        <svg width="100%" height="220" viewBox="0 0 180 180" style={{ maxWidth: '280px' }}>
+                                                            {piePaths}
+                                                            <circle cx={cx} cy={cy} r="40" fill="white" />
+                                                            <text x={cx} y={cy - 6} textAnchor="middle" style={{ fontSize: '11px', fontWeight: 700, fill: 'var(--text-secondary)' }}>PREÇO</text>
+                                                            <text x={cx} y={cy + 12} textAnchor="middle" style={{ fontSize: '13px', fontWeight: 700, fill: 'var(--text-primary)', fontFamily: 'monospace' }}>R$ {precoFinal.toFixed(2)}</text>
+                                                        </svg>
+                                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 20px', justifyContent: 'center' }}>
+                                                            {pieData.map(d => (
+                                                                <div key={d.label} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                    <div style={{ width: '10px', height: '10px', borderRadius: '3px', background: d.color, flexShrink: 0 }} />
+                                                                    <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{d.label}</span>
+                                                                    <span style={{ fontSize: '12px', fontFamily: 'monospace', color: 'var(--text-primary)', fontWeight: 600 }}>
+                                                                        R$ {d.value.toFixed(2)}
+                                                                    </span>
+                                                                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                                                                        ({pieTotal > 0 ? ((d.value / pieTotal) * 100).toFixed(1) : '0'}%)
+                                                                    </span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Confirmation card */}
+                                                <div className="card" style={{ padding: '16px 18px', flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                                    <h4 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                                        Confirmação
+                                                    </h4>
+
+                                                    {/* Line 1: Friendly name toggle */}
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                                                        <span style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: 500 }}>Deseja inserir um nome amigável para inserir na tabela?</span>
+                                                        <div style={{ display: 'flex', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
+                                                            <button
+                                                                onClick={() => setUseFriendlyName(false)}
+                                                                style={{
+                                                                    padding: '5px 14px', fontSize: '12px', fontWeight: 600, border: 'none', cursor: 'pointer',
+                                                                    background: !useFriendlyName ? 'var(--accent-primary)' : 'transparent',
+                                                                    color: !useFriendlyName ? 'white' : 'var(--text-secondary)',
+                                                                    transition: 'all 0.2s',
+                                                                }}
+                                                            >Não</button>
+                                                            <button
+                                                                onClick={() => setUseFriendlyName(true)}
+                                                                style={{
+                                                                    padding: '5px 14px', fontSize: '12px', fontWeight: 600, border: 'none', cursor: 'pointer',
+                                                                    background: useFriendlyName ? 'var(--accent-primary)' : 'transparent',
+                                                                    color: useFriendlyName ? 'white' : 'var(--text-secondary)',
+                                                                    transition: 'all 0.2s',
+                                                                }}
+                                                            >Sim</button>
+                                                        </div>
+                                                        {useFriendlyName && (
+                                                            <input
+                                                                type="text"
+                                                                placeholder="Nome amigável..."
+                                                                value={friendlyName}
+                                                                onChange={e => setFriendlyName(e.target.value)}
+                                                                style={{
+                                                                    flex: 1, minWidth: '160px', padding: '7px 12px', fontSize: '13px',
+                                                                    border: '1px solid var(--border-color)', borderRadius: '6px',
+                                                                    background: 'var(--bg-primary)', color: 'var(--text-primary)',
+                                                                    outline: 'none',
+                                                                }}
+                                                            />
+                                                        )}
+                                                    </div>
+
+                                                    {/* Line 2: Toggle + Suggested price + Final price */}
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
+                                                        {/* Toggle bar spanning full width */}
+                                                        <div style={{ display: 'flex', borderRadius: '8px 8px 0 0', overflow: 'hidden', border: '1px solid var(--border-color)', borderBottom: 'none' }}>
+                                                            <button
+                                                                onClick={() => setUseManualPrice(false)}
+                                                                style={{
+                                                                    flex: 1, padding: '8px 16px', fontSize: '12px', fontWeight: 700, border: 'none', cursor: 'pointer',
+                                                                    background: !useManualPrice ? 'var(--accent-primary)' : 'var(--bg-secondary)',
+                                                                    color: !useManualPrice ? 'white' : 'var(--text-secondary)',
+                                                                    transition: 'all 0.2s', letterSpacing: '0.3px',
+                                                                }}
+                                                            >Preço Sugerido</button>
+                                                            <button
+                                                                onClick={() => setUseManualPrice(true)}
+                                                                style={{
+                                                                    flex: 1, padding: '8px 16px', fontSize: '12px', fontWeight: 700, border: 'none', cursor: 'pointer',
+                                                                    background: useManualPrice ? 'var(--accent-primary)' : 'var(--bg-secondary)',
+                                                                    color: useManualPrice ? 'white' : 'var(--text-secondary)',
+                                                                    transition: 'all 0.2s', letterSpacing: '0.3px',
+                                                                }}
+                                                            >Preço Manual</button>
+                                                        </div>
+
+                                                        {/* Cards row */}
+                                                        <div style={{ display: 'flex', gap: '0' }}>
+                                                            {/* Preço Sugerido */}
+                                                            <div style={{
+                                                                flex: 1, background: '#eff6ff', padding: '14px 16px',
+                                                                textAlign: 'center', borderLeft: '1px solid #bfdbfe', borderBottom: '1px solid #bfdbfe',
+                                                                borderRadius: '0 0 0 8px',
+                                                            }}>
+                                                                <div style={{ fontSize: '11px', fontWeight: 600, color: '#1e40af', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>
+                                                                    Preço de Venda Sugerido
+                                                                </div>
+                                                                <div style={{ fontSize: '20px', fontWeight: 700, fontFamily: 'monospace', color: '#2563eb' }}>
+                                                                    R$ {precoFinal.toFixed(2)}
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Preço Final */}
+                                                            <div style={{
+                                                                flex: 1, padding: '14px 16px',
+                                                                textAlign: 'center',
+                                                                background: useManualPrice ? 'var(--bg-primary)' : 'var(--bg-secondary)',
+                                                                borderRight: '1px solid var(--border-color)', borderBottom: '1px solid var(--border-color)',
+                                                                borderRadius: '0 0 8px 0',
+                                                                display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '6px',
+                                                            }}>
+                                                                <div style={{ fontSize: '11px', fontWeight: 600, color: useManualPrice ? 'var(--accent-primary)' : 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                                                    Preço Final
+                                                                </div>
+                                                                {useManualPrice ? (
+                                                                    <input
+                                                                        type="text"
+                                                                        placeholder="0,00"
+                                                                        value={manualPrice}
+                                                                        onChange={e => setManualPrice(e.target.value)}
+                                                                        style={{
+                                                                            width: '100%', textAlign: 'center', padding: '6px 10px',
+                                                                            fontSize: '20px', fontWeight: 700, fontFamily: 'monospace',
+                                                                            border: '1px solid var(--border-color)', borderRadius: '6px',
+                                                                            background: 'var(--bg-primary)', color: 'var(--accent-primary)',
+                                                                            outline: 'none',
+                                                                        }}
+                                                                    />
+                                                                ) : (
+                                                                    <div style={{ fontSize: '20px', fontWeight: 700, fontFamily: 'monospace', color: '#6b7280' }}>
+                                                                        R$ {precoFinal.toFixed(2)}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Line 3: Action buttons */}
+                                                    <div style={{ display: 'flex', gap: '12px', marginTop: 'auto' }}>
+                                                        <button
+                                                            style={{
+                                                                flex: 1, padding: '10px 16px', fontSize: '13px', fontWeight: 700,
+                                                                border: 'none', borderRadius: '8px', cursor: 'pointer',
+                                                                background: 'var(--accent-primary)', color: 'white',
+                                                                transition: 'all 0.2s',
+                                                            }}
+                                                        >
+                                                            ✓ Confirmar
+                                                        </button>
+                                                        <button
+                                                            style={{
+                                                                flex: 1, padding: '10px 16px', fontSize: '13px', fontWeight: 700,
+                                                                border: '2px solid var(--accent-primary)', borderRadius: '8px', cursor: 'pointer',
+                                                                background: 'transparent', color: 'var(--accent-primary)',
+                                                                transition: 'all 0.2s',
+                                                            }}
+                                                        >
+                                                            Inserir Tabela
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                            </div>
+                                        </>
                                     );
                                 })()}
 

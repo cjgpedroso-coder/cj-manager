@@ -299,3 +299,24 @@ export async function clearPriceTableEntries() {
   const res = await fetch(`${API}/price-table-entries`, { method: 'DELETE' });
   return res.json();
 }
+
+// ── Friendly Names ──────────────────────────────────────────
+
+export async function getFriendlyNames(productId) {
+  const res = await fetch(`${API}/friendly-names/${productId}`);
+  return res.json();
+}
+
+export async function addFriendlyName(productId, name) {
+  const res = await fetch(`${API}/friendly-names`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ productId, name }),
+  });
+  return res.json();
+}
+
+export async function deleteFriendlyName(id) {
+  const res = await fetch(`${API}/friendly-names/${id}`, { method: 'DELETE' });
+  return res.json();
+}

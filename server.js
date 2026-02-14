@@ -147,6 +147,13 @@ db.exec(`
     precoFinal REAL DEFAULT 0,
     createdAt TEXT
   );
+
+  CREATE TABLE IF NOT EXISTS friendly_names (
+    id TEXT PRIMARY KEY,
+    productId TEXT NOT NULL,
+    name TEXT NOT NULL,
+    createdAt TEXT
+  );
 `);
 
 // Migration: add producaoReceita column if missing
@@ -1014,6 +1021,26 @@ app.delete('/api/price-table-entries/:id', (req, res) => {
 
 app.delete('/api/price-table-entries', (req, res) => {
     db.prepare('DELETE FROM price_table_entries').run();
+    res.json({ success: true });
+});
+
+// ── Friendly Names ───────────────────────────────────────────
+
+app.get('/api/friendly-names/:productId', (req, res) => {
+    const names = db.prepare('SELECT * FROM friendly_names WHERE productId = ? ORDER BY createdAt DESC').all(req.params.productId);
+    res.json(names);
+});
+
+app.post('/api/friendly-names', (req, res) => {
+    const { productId, name } = req.body;
+    const id = generateId();
+    const now = new Date().toISOString();
+    db.prepare('INSERT INTO friendly_names (id, productId, name, createdAt) VALUES (?, ?, ?, ?)').run(id, productId, name, now);
+    res.json({ id, productId, name, createdAt: now });
+});
+
+app.delete('/api/friendly-names/:id', (req, res) => {
+    db.prepare('DELETE FROM friendly_names WHERE id = ?').run(req.params.id);
     res.json({ success: true });
 });
 

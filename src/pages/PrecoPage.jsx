@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getProducts, getCosts, getRecipes, getRecipeIngredients, getRawMaterials, savePriceTableEntry } from '../utils/storage';
+import { getProducts, getCosts, getRecipes, getRecipeIngredients, getRawMaterials, savePriceTableEntry, getPriceTableEntries, getFriendlyNames, addFriendlyName, deleteFriendlyName } from '../utils/storage';
 
 // Tax fields from Regras Tributárias (venda group)
 const TAX_KEYS = [
@@ -46,6 +46,10 @@ export default function PrecoPage() {
     // ── Confirmation card ─────────────────────────────────────
     const [useFriendlyName, setUseFriendlyName] = useState(false);
     const [friendlyName, setFriendlyName] = useState('');
+    const [friendlyNames, setFriendlyNames] = useState([]);
+    const [isAddingNew, setIsAddingNew] = useState(false);
+    const [newFriendlyName, setNewFriendlyName] = useState('');
+    const [lastUsedName, setLastUsedName] = useState('');
     const [useManualPrice, setUseManualPrice] = useState(false);
     const [manualPrice, setManualPrice] = useState('');
     const [insertFeedback, setInsertFeedback] = useState('');
@@ -70,6 +74,29 @@ export default function PrecoPage() {
 
     // Selected product object
     const selectedProduct = products.find(p => p.id === selectedProductId);
+
+    // Load friendly names when product changes
+    useEffect(() => {
+        if (!selectedProductId) { setFriendlyNames([]); setLastUsedName(''); return; }
+        const prod = products.find(p => p.id === selectedProductId);
+        if (!prod) { setLastUsedName(''); return; }
+
+        Promise.all([
+            getFriendlyNames(selectedProductId),
+            getPriceTableEntries(),
+        ]).then(([fns, entries]) => {
+            setFriendlyNames(fns);
+            const fnNames = fns.map(f => f.name);
+            const allNames = [prod.name, ...fnNames];
+            const relevant = entries
+                .filter(e => allNames.includes(e.productName))
+                .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+            setLastUsedName(relevant.length > 0 ? relevant[0].productName : '');
+        });
+        setFriendlyName('');
+        setIsAddingNew(false);
+        setNewFriendlyName('');
+    }, [selectedProductId, products]);
 
     // ── Recalculate taxes when product/regime/operacao changes ─
     useEffect(() => {
@@ -971,7 +998,14 @@ export default function PrecoPage() {
 
                                                     {/* Line 1: Friendly name toggle */}
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                                                        <span style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: 500 }}>Deseja inserir um nome amigável para inserir na tabela?</span>
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                            <span style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: 500 }}>Deseja inserir um nome amigável para inserir na tabela?</span>
+                                                            {lastUsedName && (
+                                                                <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+                                                                    Último nome utilizado: <strong style={{ color: 'var(--text-primary)' }}>{lastUsedName}</strong>
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                         <div style={{ display: 'flex', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
                                                             <button
                                                                 onClick={() => setUseFriendlyName(false)}
@@ -993,18 +1027,99 @@ export default function PrecoPage() {
                                                             >Sim</button>
                                                         </div>
                                                         {useFriendlyName && (
-                                                            <input
-                                                                type="text"
-                                                                placeholder="Nome amigável..."
-                                                                value={friendlyName}
-                                                                onChange={e => setFriendlyName(e.target.value)}
-                                                                style={{
-                                                                    flex: 1, minWidth: '160px', padding: '7px 12px', fontSize: '13px',
-                                                                    border: '1px solid var(--border-color)', borderRadius: '6px',
-                                                                    background: 'var(--bg-primary)', color: 'var(--text-primary)',
-                                                                    outline: 'none',
-                                                                }}
-                                                            />
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, minWidth: '200px' }}>
+                                                                {isAddingNew ? (
+                                                                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                                                                        <input
+                                                                            type="text"
+                                                                            placeholder="Novo nome amigável..."
+                                                                            value={newFriendlyName}
+                                                                            onChange={e => setNewFriendlyName(e.target.value)}
+                                                                            autoFocus
+                                                                            style={{
+                                                                                flex: 1, padding: '7px 12px', fontSize: '13px',
+                                                                                border: '1px solid var(--border-color)', borderRadius: '6px',
+                                                                                background: 'var(--bg-primary)', color: 'var(--text-primary)',
+                                                                                outline: 'none',
+                                                                            }}
+                                                                        />
+                                                                        <button
+                                                                            onClick={async () => {
+                                                                                if (!newFriendlyName.trim() || !selectedProductId) return;
+                                                                                try {
+                                                                                    await addFriendlyName(selectedProductId, newFriendlyName.trim());
+                                                                                    const updated = await getFriendlyNames(selectedProductId);
+                                                                                    setFriendlyNames(updated);
+                                                                                    setFriendlyName(newFriendlyName.trim());
+                                                                                    setNewFriendlyName('');
+                                                                                    setIsAddingNew(false);
+                                                                                } catch (err) {
+                                                                                    console.error('Erro ao salvar nome amigável:', err);
+                                                                                    alert('Erro ao salvar. Verifique se o servidor foi reiniciado.');
+                                                                                }
+                                                                            }}
+                                                                            style={{
+                                                                                padding: '7px 12px', fontSize: '12px', fontWeight: 700,
+                                                                                border: 'none', borderRadius: '6px', cursor: 'pointer',
+                                                                                background: 'var(--accent-primary)', color: 'white',
+                                                                            }}
+                                                                        >Salvar</button>
+                                                                        <button
+                                                                            onClick={() => { setIsAddingNew(false); setNewFriendlyName(''); }}
+                                                                            style={{
+                                                                                padding: '7px 10px', fontSize: '12px', fontWeight: 600,
+                                                                                border: '1px solid var(--border-color)', borderRadius: '6px', cursor: 'pointer',
+                                                                                background: 'transparent', color: 'var(--text-secondary)',
+                                                                            }}
+                                                                        >✕</button>
+                                                                    </div>
+                                                                ) : (
+                                                                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                                                                        <select
+                                                                            className="form-select"
+                                                                            value={friendlyName}
+                                                                            onChange={e => {
+                                                                                if (e.target.value === '__add_new__') {
+                                                                                    setIsAddingNew(true);
+                                                                                    setFriendlyName('');
+                                                                                } else {
+                                                                                    setFriendlyName(e.target.value);
+                                                                                }
+                                                                            }}
+                                                                            style={{ flex: 1, padding: '7px 12px', fontSize: '13px' }}
+                                                                        >
+                                                                            <option value="">Selecione...</option>
+                                                                            {friendlyNames.map(fn => (
+                                                                                <option key={fn.id} value={fn.name}>{fn.name}</option>
+                                                                            ))}
+                                                                            <option value="__add_new__">+ Adicionar</option>
+                                                                        </select>
+                                                                        {friendlyName && (() => {
+                                                                            const fnEntry = friendlyNames.find(fn => fn.name === friendlyName);
+                                                                            return fnEntry ? (
+                                                                                <button
+                                                                                    onClick={async () => {
+                                                                                        await deleteFriendlyName(fnEntry.id);
+                                                                                        const updated = await getFriendlyNames(selectedProductId);
+                                                                                        setFriendlyNames(updated);
+                                                                                        setFriendlyName('');
+                                                                                    }}
+                                                                                    title="Excluir nome amigável"
+                                                                                    style={{
+                                                                                        padding: '7px 8px', border: 'none', cursor: 'pointer',
+                                                                                        background: 'transparent', color: '#ef4444', fontSize: '14px',
+                                                                                        borderRadius: '6px', transition: 'all 0.2s',
+                                                                                    }}
+                                                                                >
+                                                                                    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                                                    </svg>
+                                                                                </button>
+                                                                            ) : null;
+                                                                        })()}
+                                                                    </div>
+                                                                )}
+                                                            </div>
                                                         )}
                                                     </div>
 
@@ -1096,17 +1211,23 @@ export default function PrecoPage() {
                                                             ✓ Confirmar
                                                         </button>
                                                         <button
-                                                            onClick={() => {
+                                                            onClick={async () => {
                                                                 if (!selectedProduct) return;
                                                                 const productName = useFriendlyName && friendlyName.trim() ? friendlyName.trim() : selectedProduct.name;
-                                                                // Badge: RMC always Normal, ROMICA+SN = Simples, otherwise Normal
                                                                 let regimeBadge = 'Normal';
                                                                 if (emitente === 'ROMICA' && regimeTributario === 'Simples Nacional') {
                                                                     regimeBadge = 'Simples';
                                                                 }
                                                                 const emitenteVal = regimeTributario === 'Sem Nfe' ? 'S/NF' : emitente;
                                                                 const displayPrice = useManualPrice ? (parseFloat(manualPrice.replace(',', '.')) || 0) : precoFinal;
-                                                                setInsertModalData({ productName, regimeBadge, emitenteVal, tabela, regimeTributario, displayPrice });
+                                                                // Check for existing entry
+                                                                const allEntries = await getPriceTableEntries();
+                                                                const existing = allEntries.find(e =>
+                                                                    e.productName === productName && e.regimeBadge === regimeBadge &&
+                                                                    e.tabela === tabela && e.emitente === emitenteVal && e.tabelaTipo === 'Comum'
+                                                                );
+                                                                const oldPrice = existing ? Number(existing.precoFinal) : null;
+                                                                setInsertModalData({ productName, regimeBadge, emitenteVal, tabela, regimeTributario, displayPrice, oldPrice, lastUsedName });
                                                                 setShowInsertModal(true);
                                                             }}
                                                             style={{
@@ -1134,7 +1255,12 @@ export default function PrecoPage() {
 
             {/* ── Insert Confirmation Modal ── */}
             {showInsertModal && insertModalData && (() => {
-                const { productName, regimeBadge, emitenteVal, tabela: tabelaVal, regimeTributario: regimeVal, displayPrice } = insertModalData;
+                const { productName, regimeBadge, emitenteVal, tabela: tabelaVal, regimeTributario: regimeVal, displayPrice, oldPrice, lastUsedName: modalLastName } = insertModalData;
+                const isConflict = oldPrice !== null;
+                const isNameDifferent = modalLastName && modalLastName !== productName;
+                const variation = isConflict ? ((displayPrice - oldPrice) / oldPrice * 100) : 0;
+                const variationColor = variation > 0 ? '#059669' : variation < 0 ? '#ef4444' : 'var(--text-secondary)';
+                const variationLabel = variation > 0 ? 'Aumento' : variation < 0 ? 'Redução' : 'Sem alteração';
                 return (
                     <div style={{
                         position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
@@ -1142,10 +1268,10 @@ export default function PrecoPage() {
                     }} onClick={() => setShowInsertModal(false)}>
                         <div style={{
                             background: 'var(--bg-primary)', borderRadius: '16px', padding: '28px 32px',
-                            width: '420px', maxWidth: '90vw', boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+                            width: '440px', maxWidth: '90vw', boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
                         }} onClick={e => e.stopPropagation()}>
-                            <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '20px', textAlign: 'center' }}>
-                                Confirmar Inserção na Tabela
+                            <h3 style={{ fontSize: '16px', fontWeight: 700, color: isConflict ? '#f59e0b' : 'var(--text-primary)', marginBottom: '20px', textAlign: 'center' }}>
+                                {isConflict ? '⚠ Valor já existente na tabela' : 'Confirmar Inserção na Tabela'}
                             </h3>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px' }}>
                                 {[
@@ -1153,22 +1279,75 @@ export default function PrecoPage() {
                                     { label: 'Tabela', value: tabelaVal },
                                     { label: 'Emitente', value: emitenteVal },
                                     { label: 'Regime Tributário', value: regimeVal },
-                                    { label: 'Preço Final', value: `R$ ${displayPrice.toFixed(2)}`, highlight: true },
                                 ].map(item => (
                                     <div key={item.label} style={{
                                         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                                         padding: '10px 14px', borderRadius: '8px',
-                                        background: item.highlight ? '#eff6ff' : 'var(--bg-secondary)',
-                                        border: item.highlight ? '1px solid #bfdbfe' : '1px solid var(--border-color)',
+                                        background: 'var(--bg-secondary)', border: '1px solid var(--border-color)',
                                     }}>
                                         <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.3px' }}>{item.label}</span>
-                                        <span style={{
-                                            fontSize: item.highlight ? '16px' : '13px',
-                                            fontWeight: 700, fontFamily: 'monospace',
-                                            color: item.highlight ? '#2563eb' : 'var(--text-primary)',
-                                        }}>{item.value}</span>
+                                        <span style={{ fontSize: '13px', fontWeight: 700, fontFamily: 'monospace', color: 'var(--text-primary)' }}>{item.value}</span>
                                     </div>
                                 ))}
+
+                                {isNameDifferent && (
+                                    <div style={{
+                                        padding: '12px 14px', borderRadius: '8px',
+                                        background: '#fff7ed', border: '1px solid #fed7aa',
+                                    }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                                            <span style={{ fontSize: '14px' }}>⚠️</span>
+                                            <span style={{ fontSize: '12px', fontWeight: 700, color: '#9a3412', textTransform: 'uppercase', letterSpacing: '0.3px' }}>Nome diferente do último utilizado</span>
+                                        </div>
+                                        <div style={{ fontSize: '12px', color: '#9a3412', lineHeight: '1.5' }}>
+                                            <div>Último nome: <strong>{modalLastName}</strong></div>
+                                            <div>Nome atual: <strong>{productName}</strong></div>
+                                            <div style={{ marginTop: '6px', fontStyle: 'italic', color: '#c2410c' }}>
+                                                Ao continuar, será criada uma nova linha na tabela de preços, como um "produto diferente".
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {isConflict ? (
+                                    <>
+                                        <div style={{
+                                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                            padding: '10px 14px', borderRadius: '8px',
+                                            background: '#fef2f2', border: '1px solid #fecaca',
+                                        }}>
+                                            <span style={{ fontSize: '12px', fontWeight: 600, color: '#991b1b', textTransform: 'uppercase', letterSpacing: '0.3px' }}>Valor Atual</span>
+                                            <span style={{ fontSize: '15px', fontWeight: 700, fontFamily: 'monospace', color: '#991b1b' }}>R$ {oldPrice.toFixed(2)}</span>
+                                        </div>
+                                        <div style={{
+                                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                            padding: '10px 14px', borderRadius: '8px',
+                                            background: '#eff6ff', border: '1px solid #bfdbfe',
+                                        }}>
+                                            <span style={{ fontSize: '12px', fontWeight: 600, color: '#1e40af', textTransform: 'uppercase', letterSpacing: '0.3px' }}>Novo Valor</span>
+                                            <span style={{ fontSize: '15px', fontWeight: 700, fontFamily: 'monospace', color: '#2563eb' }}>R$ {displayPrice.toFixed(2)}</span>
+                                        </div>
+                                        <div style={{
+                                            display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px',
+                                            padding: '10px 14px', borderRadius: '8px',
+                                            background: variation > 0 ? '#ecfdf5' : variation < 0 ? '#fef2f2' : 'var(--bg-secondary)',
+                                            border: `1px solid ${variation > 0 ? '#a7f3d0' : variation < 0 ? '#fecaca' : 'var(--border-color)'}`,
+                                        }}>
+                                            <span style={{ fontSize: '13px', fontWeight: 700, color: variationColor }}>
+                                                {variationLabel}: {variation > 0 ? '+' : ''}{variation.toFixed(2)}%
+                                            </span>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div style={{
+                                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                        padding: '10px 14px', borderRadius: '8px',
+                                        background: '#eff6ff', border: '1px solid #bfdbfe',
+                                    }}>
+                                        <span style={{ fontSize: '12px', fontWeight: 600, color: '#1e40af', textTransform: 'uppercase', letterSpacing: '0.3px' }}>Preço Final</span>
+                                        <span style={{ fontSize: '16px', fontWeight: 700, fontFamily: 'monospace', color: '#2563eb' }}>R$ {displayPrice.toFixed(2)}</span>
+                                    </div>
+                                )}
                             </div>
                             <div style={{ display: 'flex', gap: '12px' }}>
                                 <button onClick={() => setShowInsertModal(false)} style={{
@@ -1188,8 +1367,8 @@ export default function PrecoPage() {
                                 }} style={{
                                     flex: 1, padding: '10px', fontSize: '13px', fontWeight: 700,
                                     border: 'none', borderRadius: '8px', cursor: 'pointer',
-                                    background: 'var(--accent-primary)', color: 'white',
-                                }}>✓ Confirmar</button>
+                                    background: isConflict ? '#f59e0b' : 'var(--accent-primary)', color: 'white',
+                                }}>{isConflict ? '⚠ Substituir' : '✓ Confirmar'}</button>
                             </div>
                         </div>
                     </div>

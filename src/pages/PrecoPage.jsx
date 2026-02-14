@@ -31,6 +31,8 @@ export default function PrecoPage() {
     const [margemValor, setMargemValor] = useState('');
     const [freteTipo, setFreteTipo] = useState('R$');
     const [freteValor, setFreteValor] = useState('');
+    const [comissaoTipo, setComissaoTipo] = useState('R$');
+    const [comissaoValor, setComissaoValor] = useState('');
 
     // ── Taxes ────────────────────────────────────────────────
     const [taxes, setTaxes] = useState({}); // { vendaIcms: 0, vendaPis: 0, ... }
@@ -267,6 +269,34 @@ export default function PrecoPage() {
                                         placeholder={freteTipo === 'R$' ? '0.00' : '0.00'}
                                         value={freteValor}
                                         onChange={e => setFreteValor(e.target.value)}
+                                        style={{ width: '100%' }}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Comissão */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                                <div>
+                                    <label style={labelStyle}>Comissão</label>
+                                    <div style={{
+                                        display: 'flex', borderRadius: '8px', overflow: 'hidden',
+                                        border: '1px solid var(--border-color)',
+                                    }}>
+                                        <button type="button" onClick={() => setComissaoTipo('R$')} style={toggleBtnStyle(comissaoTipo === 'R$')}>R$</button>
+                                        <button type="button" onClick={() => setComissaoTipo('%')} style={toggleBtnStyle(comissaoTipo === '%')}>%</button>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label style={labelStyle}>
+                                        Comissão Valor {comissaoTipo === 'R$' ? '(R$)' : '(%)'}
+                                    </label>
+                                    <input
+                                        className="form-input"
+                                        type="number"
+                                        step="0.01"
+                                        placeholder="0.00"
+                                        value={comissaoValor}
+                                        onChange={e => setComissaoValor(e.target.value)}
                                         style={{ width: '100%' }}
                                     />
                                 </div>
@@ -611,6 +641,167 @@ export default function PrecoPage() {
                                                 <div style={{ flex: 1, background: '#eff6ff', borderRadius: '8px', padding: '14px 16px', textAlign: 'center', border: '1px solid #bfdbfe' }}>
                                                     <div style={{ fontSize: '11px', fontWeight: 600, color: '#1e40af', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Custo Real</div>
                                                     <div style={{ fontSize: '20px', fontWeight: 700, fontFamily: 'monospace', color: '#2563eb' }}>R$ {(precoCompra - creditoIcms).toFixed(2)}</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
+
+                                {/* ── Custo Final + Formação de Preço (side by side) ── */}
+                                {(() => {
+                                    // ── Compute Custo Real ──
+                                    const isTercerizado = selectedProduct?.category === 'Tercerizado';
+                                    let custoReal = 0;
+                                    if (isTercerizado) {
+                                        const precoCompra = Number(selectedProduct.compraPreco) || 0;
+                                        const icmsCompra = Number(selectedProduct.compraIcms) || 0;
+                                        const creditoIcms = (precoCompra * icmsCompra) / 100;
+                                        custoReal = precoCompra - creditoIcms;
+                                    } else {
+                                        const recipe = recipes.find(r => r.productId === selectedProduct.id);
+                                        if (recipe) {
+                                            const ings = recipeIngredients[recipe.id] || [];
+                                            const producao = Number(recipe.producaoReceita) || 1;
+                                            const totalRS = ings.reduce((s, i) => s + (Number(i.quantidade) || 0) * (Number(i.precoKg) || 0), 0);
+                                            const totalIcmsRS = ings.reduce((s, i) => {
+                                                const t = (Number(i.quantidade) || 0) * (Number(i.precoKg) || 0);
+                                                const rm = rawMaterials.find(r => r.id === i.rawMaterialId);
+                                                return s + ((Number(rm?.compraIcms) || 0) * t) / 100;
+                                            }, 0);
+                                            custoReal = (totalRS / producao) - (totalIcmsRS / producao);
+                                        }
+                                    }
+
+                                    // ── Rateio % ──
+                                    const totalVendas = products.reduce((s, p) => s + (Number(p.vendasMes) || 0), 0);
+                                    const rateioPct = totalVendas > 0 ? ((Number(selectedProduct.vendasMes) || 0) * 100) / totalVendas : 0;
+
+                                    // ── Margem ──
+                                    const margemNum = Number(margemValor) || 0;
+                                    const margemPct = margemTipo === '%' ? margemNum : 0;
+                                    const margemRS = margemTipo === 'R$' ? margemNum : 0;
+
+                                    // ── Frete ──
+                                    const freteNum = Number(freteValor) || 0;
+                                    const fretePct = freteTipo === '%' ? freteNum : 0;
+                                    const freteRS = freteTipo === 'R$' ? freteNum : 0;
+
+                                    // ── Comissão ──
+                                    const comissaoNum = Number(comissaoValor) || 0;
+                                    const comissaoPct = comissaoTipo === '%' ? comissaoNum : 0;
+                                    const comissaoRS = comissaoTipo === 'R$' ? comissaoNum : 0;
+
+                                    // ── Custo Final = Custo Real + valores fixos em R$ ──
+                                    const custoFinal = custoReal + margemRS + freteRS + comissaoRS;
+
+                                    // ── Markup: Preço = CustoFinal / (1 - impostos% - rateio% - margem% - frete% - comissão%) ──
+                                    const totalTaxPct = visibleTaxes.reduce((s, t) => s + (Number(taxes[t.key]) || 0), 0);
+                                    const totalDivisor = rateioPct + totalTaxPct + margemPct + fretePct + comissaoPct;
+                                    const precoFinal = totalDivisor < 100 ? custoFinal / (1 - totalDivisor / 100) : custoFinal;
+                                    const rateioRS_calc = (precoFinal * rateioPct) / 100;
+                                    const totalImpostosRS = (precoFinal * totalTaxPct) / 100;
+                                    const margemRS_calc = margemTipo === '%' ? (precoFinal * margemPct) / 100 : margemRS;
+                                    const freteRS_calc = freteTipo === '%' ? (precoFinal * fretePct) / 100 : freteRS;
+                                    const comissaoRS_calc = comissaoTipo === '%' ? (precoFinal * comissaoPct) / 100 : comissaoRS;
+
+                                    // ── Custo Final rows ──
+                                    const cfRows = [
+                                        { label: 'Custo Real', value: custoReal },
+                                    ];
+                                    // R$ values go here (they add to Custo Final)
+                                    if (margemTipo === 'R$' && margemRS > 0) {
+                                        cfRows.push({ label: `Margem (R$${margemNum.toFixed(2)})`, value: margemRS });
+                                    }
+                                    if (freteTipo === 'R$' && freteRS > 0) {
+                                        cfRows.push({ label: `Frete (R$${freteNum.toFixed(2)})`, value: freteRS });
+                                    }
+                                    if (comissaoTipo === 'R$' && comissaoRS > 0) {
+                                        cfRows.push({ label: `Comissão (R$${comissaoNum.toFixed(2)})`, value: comissaoRS });
+                                    }
+
+                                    // ── Formação de Preço rows (ordered) ──
+                                    const fpRows = [
+                                        { label: 'Custo Final', value: custoFinal },
+                                    ];
+                                    // Impostos: ICMS, PIS, COFINS, IR, CS, IBS, CBS
+                                    visibleTaxes.forEach(t => {
+                                        const pct = Number(taxes[t.key]) || 0;
+                                        if (pct > 0) {
+                                            fpRows.push({ label: `${t.label} (${pct.toFixed(2)}%)`, value: (precoFinal * pct) / 100 });
+                                        }
+                                    });
+                                    // Custos Absorv.
+                                    fpRows.push({ label: `Custos Absorv. (${rateioPct.toFixed(2)}%)`, value: rateioRS_calc });
+                                    // % values go here (they're in the markup divisor)
+                                    if (margemTipo === '%' && margemPct > 0) {
+                                        fpRows.push({ label: `Margem (${margemPct.toFixed(2)}%)`, value: margemRS_calc });
+                                    }
+                                    if (freteTipo === '%' && fretePct > 0) {
+                                        fpRows.push({ label: `Frete (${fretePct.toFixed(2)}%)`, value: freteRS_calc });
+                                    }
+                                    if (comissaoTipo === '%' && comissaoPct > 0) {
+                                        fpRows.push({ label: `Comissão (${comissaoPct.toFixed(2)}%)`, value: comissaoRS_calc });
+                                    }
+
+                                    return (
+                                        <div style={{ display: 'flex', gap: '16px', alignItems: 'stretch' }}>
+                                            {/* Custo Final card */}
+                                            <div className="card" style={{ padding: '16px 18px', flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                                                <h4 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                                    Custo Final
+                                                </h4>
+                                                <div style={{ overflowX: 'auto', flex: 1 }}>
+                                                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                                        <thead>
+                                                            <tr style={{ borderBottom: '2px solid var(--border-color)' }}>
+                                                                <th style={thRight}>Componente</th>
+                                                                <th style={{ ...thRight, textAlign: 'right' }}>Valor (R$)</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {cfRows.map(r => (
+                                                                <tr key={r.label} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                                                                    <td style={tdRight}>{r.label}</td>
+                                                                    <td style={{ ...tdRight, textAlign: 'right', fontFamily: 'monospace' }}>R$ {r.value.toFixed(2)}</td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                                <div style={{ marginTop: 'auto', borderTop: '2px solid var(--border-color)', padding: '8px 10px', display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}>
+                                                    <span style={{ fontSize: '13px' }}>Custo Final</span>
+                                                    <span style={{ fontFamily: 'monospace', fontSize: '13px', color: '#059669' }}>R$ {custoFinal.toFixed(2)}</span>
+                                                </div>
+                                            </div>
+
+                                            {/* Formação de Preço card */}
+                                            <div className="card" style={{ padding: '16px 18px', flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                                                <h4 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                                    Formação de Preço
+                                                </h4>
+                                                <div style={{ overflowX: 'auto', flex: 1 }}>
+                                                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                                        <thead>
+                                                            <tr style={{ borderBottom: '2px solid var(--border-color)' }}>
+                                                                <th style={thRight}>Componente</th>
+                                                                <th style={{ ...thRight, textAlign: 'right' }}>Valor (R$)</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {fpRows.map(r => (
+                                                                <tr key={r.label} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                                                                    <td style={tdRight}>{r.label}</td>
+                                                                    <td style={{ ...tdRight, textAlign: 'right', fontFamily: 'monospace' }}>R$ {r.value.toFixed(2)}</td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                                <div style={{ marginTop: 'auto', borderTop: '2px solid var(--border-color)', padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, borderTop: '1px solid var(--border-color)', paddingTop: '6px' }}>
+                                                        <span style={{ fontSize: '14px', color: 'var(--text-primary)' }}>Preço de Venda</span>
+                                                        <span style={{ fontFamily: 'monospace', fontSize: '15px', color: '#2563eb' }}>R$ {precoFinal.toFixed(2)}</span>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
